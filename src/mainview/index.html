@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Markdown Viewer</title>
+	<link rel="stylesheet" href="katex/katex.min.css">
+	<link rel="stylesheet" href="index.css">
+</head>
+<body class="theme-auto">
+	<div class="titlebar-spacer" aria-hidden="true"></div>
+
+	<div class="app">
+		<aside class="sidebar" id="sidebar">
+			<div class="sidebar-header">
+				<button id="open-btn" class="btn btn-primary" title="Open file (⌘O)">
+					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+					<span>File</span>
+				</button>
+				<button id="open-folder-btn" class="btn btn-primary" title="Open folder (⌘⇧O)">
+					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+					<span>Folder</span>
+				</button>
+				<button id="theme-btn" class="btn btn-icon" title="Toggle theme (⌘D)" aria-label="Toggle theme">
+					<svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+					<svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+				</button>
+			</div>
+
+			<div class="sidebar-tabs">
+				<button class="tab-btn active" data-tab="files">Files</button>
+				<button class="tab-btn" data-tab="search">Search</button>
+				<button class="tab-btn" data-tab="recent">Recent</button>
+				<button class="tab-btn" data-tab="outline">Outline</button>
+			</div>
+
+			<div class="tab-pane active" data-pane="files">
+				<div id="folder-section" class="sidebar-section sidebar-section-tree" hidden>
+					<div class="tree-toolbar">
+						<input id="tree-filter" class="tree-filter" placeholder="Filter files…" />
+						<span id="folder-truncated" class="badge" hidden>truncated</span>
+					</div>
+					<div id="folder-label" class="folder-label" title=""></div>
+					<div id="file-tree" class="file-tree"></div>
+				</div>
+				<div id="files-empty" class="pane-empty">
+					<p>No folder open</p>
+					<button id="files-empty-open" class="btn btn-primary">Open Folder</button>
+				</div>
+			</div>
+
+			<div class="tab-pane" data-pane="search" hidden>
+				<div class="search-tools">
+					<input id="folder-search-input" class="search-input" placeholder="Search across folder…" />
+					<div class="search-flags">
+						<label><input type="checkbox" id="search-case" /> Case</label>
+						<label><input type="checkbox" id="search-word" /> Word</label>
+					</div>
+				</div>
+				<div id="folder-search-status" class="search-status"></div>
+				<div id="folder-search-results" class="search-results"></div>
+			</div>
+
+			<div class="tab-pane" data-pane="recent" hidden>
+				<div class="recent-tools">
+					<span class="sidebar-label" style="padding:0 8px;">Recent files</span>
+					<button id="clear-recent" class="btn btn-ghost btn-small" title="Clear recent">Clear</button>
+				</div>
+				<div id="recent-list" class="recent-list"></div>
+			</div>
+
+			<div class="tab-pane" data-pane="outline" hidden>
+				<div class="sidebar-label" style="padding:8px 12px 4px;">On this page</div>
+				<nav id="toc" class="toc"></nav>
+			</div>
+		</aside>
+
+		<div class="resize-handle" id="resize-handle" aria-hidden="true"></div>
+
+		<main class="content" id="content-pane">
+			<div id="dropzone" class="dropzone" aria-hidden="true">
+				<div class="dropzone-msg">Drop a Markdown file to open</div>
+			</div>
+
+			<div id="find-bar" class="find-bar" hidden>
+				<input id="find-input" class="find-input" placeholder="Find in document…" />
+				<span id="find-count" class="find-count"></span>
+				<button id="find-prev" class="btn btn-icon btn-small" title="Previous (⇧↩)">↑</button>
+				<button id="find-next" class="btn btn-icon btn-small" title="Next (↩)">↓</button>
+				<button id="find-close" class="btn btn-icon btn-small" title="Close (Esc)">✕</button>
+			</div>
+
+			<article id="content" class="markdown-body welcome">
+				<div class="welcome-card">
+					<h1>Markdown Viewer</h1>
+					<p class="welcome-sub">Open a file with <kbd>⌘</kbd> <kbd>O</kbd>, a folder with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>O</kbd>, or drop a <code>.md</code> file here.</p>
+					<div class="welcome-features">
+						<div class="feature"><div class="feature-title">Markdown + GFM + Math</div><div class="feature-desc">Tables, tasks, footnotes, KaTeX, GitHub alerts, wikilinks</div></div>
+						<div class="feature"><div class="feature-title">Mermaid &amp; C4</div><div class="feature-desc">Click any diagram to zoom + pan</div></div>
+						<div class="feature"><div class="feature-title">Find &amp; Search</div><div class="feature-desc"><kbd>⌘F</kbd> in doc, <kbd>⌘⇧F</kbd> across folder</div></div>
+						<div class="feature"><div class="feature-title">Live + Recent</div><div class="feature-desc">Auto-reload on save, last opened files remembered</div></div>
+					</div>
+					<div id="welcome-recent" class="welcome-recent" hidden>
+						<div class="welcome-recent-title">Recent</div>
+						<div id="welcome-recent-list"></div>
+					</div>
+				</div>
+			</article>
+		</main>
+	</div>
+
+	<div id="lightbox" class="lightbox" hidden>
+		<div class="lightbox-header">
+			<span id="lightbox-title" class="lightbox-title">Diagram</span>
+			<button id="lightbox-close" class="btn btn-icon" aria-label="Close">✕</button>
+		</div>
+		<div id="lightbox-stage" class="lightbox-stage"></div>
+	</div>
+
+	<div id="statusbar" class="statusbar">
+		<span id="status-path" class="status-path"></span>
+		<span id="status-stats" class="status-stats"></span>
+		<span id="status-zoom" class="status-zoom">100%</span>
+	</div>
+
+	<script src="index.js"></script>
+</body>
+</html>

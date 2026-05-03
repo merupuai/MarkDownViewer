@@ -1,0 +1,31 @@
+{
+  "name": "markdown-viewer",
+  "version": "1.0.0",
+  "description": "Native macOS markdown viewer with mermaid/C4 diagram support",
+  "scripts": {
+    "dev": "electrobun dev --watch",
+    "start": "electrobun dev",
+    "build": "electrobun build",
+    "build:release": "electrobun build --release"
+  },
+  "dependencies": {
+    "electrobun": "^1.17.3-beta.12",
+    "gray-matter": "^4.0.3",
+    "highlight.js": "^11.10.0",
+    "isomorphic-dompurify": "^2.16.0",
+    "katex": "^0.16.11",
+    "markdown-it": "^14.1.0",
+    "markdown-it-anchor": "^9.2.0",
+    "markdown-it-attrs": "^4.3.1",
+    "markdown-it-emoji": "^3.0.0",
+    "markdown-it-footnote": "^4.0.0",
+    "markdown-it-task-lists": "^2.1.1",
+    "markdown-it-texmath": "^1.0.0",
+    "mermaid": "^11.4.0",
+    "svg-pan-zoom": "^3.6.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/markdown-it": "^14.1.2"
+  }
+}

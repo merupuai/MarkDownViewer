@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build artifacts
+build/
+artifacts/
+dist/
+
+# CoBolt / runtime instrumentation outputs (not part of the app)
+_cobolt-output/
+.claude/
+
+# Logs
+*.log
+/tmp/mdv-*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.history/
+
+# Bun
+.bun/
+
+# Electron / Electrobun cache
+.electrobun-cache/
+electrobun-core-*.tar.gz
+core-macos-*-temp.tar.gz
+core-win-*-temp.tar.gz
+core-linux-*-temp.tar.gz
+
+# Compiled native helpers (reproducible from sources/cocoa-launcher.swift)
+build/tools/
+
+# Local-only secrets
+.env
+.env.local
+*.pem

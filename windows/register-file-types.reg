@@ -1,0 +1,88 @@
+Windows Registry Editor Version 5.00
+
+; register-file-types.reg
+;
+; Manual file-association registration for Markdown Viewer (Windows).
+; Per-user (HKEY_CURRENT_USER) — no admin required.
+;
+; BEFORE IMPORTING:
+;   1. Build the app: scripts\build-windows.ps1
+;   2. Copy the build output to a stable location, e.g. %LOCALAPPDATA%\Programs\MarkdownViewer
+;   3. Edit this file and replace EVERY instance of
+;        C:\\Users\\YOU\\AppData\\Local\\Programs\\MarkdownViewer\\Markdown Viewer.exe
+;      with the actual path to your installed Markdown Viewer.exe.
+;      (Note: backslashes must be doubled in .reg files.)
+;
+; IMPORT:  Double-click this file in Explorer, or:
+;          reg import register-file-types.reg
+;
+; UNDO:    Run unregister-file-types.reg.
+
+; --- ProgID ---
+[HKEY_CURRENT_USER\Software\Classes\MarkdownViewer.MarkdownDocument]
+@="Markdown Document"
+
+[HKEY_CURRENT_USER\Software\Classes\MarkdownViewer.MarkdownDocument\DefaultIcon]
+@="\"C:\\Users\\YOU\\AppData\\Local\\Programs\\MarkdownViewer\\Markdown Viewer.exe\",0"
+
+[HKEY_CURRENT_USER\Software\Classes\MarkdownViewer.MarkdownDocument\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\MarkdownViewer.MarkdownDocument\shell\open]
+@="Open"
+
+[HKEY_CURRENT_USER\Software\Classes\MarkdownViewer.MarkdownDocument\shell\open\command]
+@="\"C:\\Users\\YOU\\AppData\\Local\\Programs\\MarkdownViewer\\Markdown Viewer.exe\" \"%1\""
+
+; --- App registration ---
+[HKEY_CURRENT_USER\Software\Classes\Applications\Markdown Viewer.exe]
+"FriendlyAppName"="Markdown Viewer"
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\Markdown Viewer.exe\shell]
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\Markdown Viewer.exe\shell\open]
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\Markdown Viewer.exe\shell\open\command]
+@="\"C:\\Users\\YOU\\AppData\\Local\\Programs\\MarkdownViewer\\Markdown Viewer.exe\" \"%1\""
+
+[HKEY_CURRENT_USER\Software\Classes\Applications\Markdown Viewer.exe\SupportedTypes]
+".md"=""
+".markdown"=""
+".mdown"=""
+".mkd"=""
+".mkdn"=""
+".mdx"=""
+
+; --- Extension associations ---
+[HKEY_CURRENT_USER\Software\Classes\.md\OpenWithProgids]
+"MarkdownViewer.MarkdownDocument"=hex(0):
+
+[HKEY_CURRENT_USER\Software\Classes\.markdown\OpenWithProgids]
+"MarkdownViewer.MarkdownDocument"=hex(0):
+
+[HKEY_CURRENT_USER\Software\Classes\.mdown\OpenWithProgids]
+"MarkdownViewer.MarkdownDocument"=hex(0):
+
+[HKEY_CURRENT_USER\Software\Classes\.mkd\OpenWithProgids]
+"MarkdownViewer.MarkdownDocument"=hex(0):
+
+[HKEY_CURRENT_USER\Software\Classes\.mkdn\OpenWithProgids]
+"MarkdownViewer.MarkdownDocument"=hex(0):
+
+[HKEY_CURRENT_USER\Software\Classes\.mdx\OpenWithProgids]
+"MarkdownViewer.MarkdownDocument"=hex(0):
+
+; --- Default Apps integration ---
+[HKEY_CURRENT_USER\Software\Markdown Viewer\Capabilities]
+"ApplicationName"="Markdown Viewer"
+"ApplicationDescription"="Native markdown viewer with Mermaid/C4 diagrams"
+
+[HKEY_CURRENT_USER\Software\Markdown Viewer\Capabilities\FileAssociations]
+".md"="MarkdownViewer.MarkdownDocument"
+".markdown"="MarkdownViewer.MarkdownDocument"
+".mdown"="MarkdownViewer.MarkdownDocument"
+".mkd"="MarkdownViewer.MarkdownDocument"
+".mkdn"="MarkdownViewer.MarkdownDocument"
+".mdx"="MarkdownViewer.MarkdownDocument"
+
+[HKEY_CURRENT_USER\Software\RegisteredApplications]
+"Markdown Viewer"="Software\\Markdown Viewer\\Capabilities"

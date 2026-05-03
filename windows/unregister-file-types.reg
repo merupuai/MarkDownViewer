@@ -1,0 +1,18 @@
+Windows Registry Editor Version 5.00
+
+; unregister-file-types.reg — Undo register-file-types.reg
+; Per-user (HKEY_CURRENT_USER), no admin needed.
+; Import via Explorer (double-click) or: reg import unregister-file-types.reg
+
+[-HKEY_CURRENT_USER\Software\Classes\MarkdownViewer.MarkdownDocument]
+[-HKEY_CURRENT_USER\Software\Classes\Applications\Markdown Viewer.exe]
+[-HKEY_CURRENT_USER\Software\Classes\.md\OpenWithProgids]
+[-HKEY_CURRENT_USER\Software\Classes\.markdown\OpenWithProgids]
+[-HKEY_CURRENT_USER\Software\Classes\.mdown\OpenWithProgids]
+[-HKEY_CURRENT_USER\Software\Classes\.mkd\OpenWithProgids]
+[-HKEY_CURRENT_USER\Software\Classes\.mkdn\OpenWithProgids]
+[-HKEY_CURRENT_USER\Software\Classes\.mdx\OpenWithProgids]
+[-HKEY_CURRENT_USER\Software\Markdown Viewer]
+
+[HKEY_CURRENT_USER\Software\RegisteredApplications]
+"Markdown Viewer"=-
