@@ -9,6 +9,8 @@ const { cmdRecord } = require('./cobolt-source-write-provenance');
 const { record, validateHardGate } = require('./cobolt-step-proof');
 const { SOURCE_EXTS, isHarnessPath } = require('../lib/cobolt-shipping-files');
 const { projectExecutionLedger, syncBuildExecutionLedger } = require('../lib/cobolt-execution-ledger');
+const { loadProjectClass } = require('../lib/cobolt-project-class-loader');
+const { skipReasonForRound } = require('../lib/cobolt-pipeline-class-rules');
 
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const PACKAGE_VERSION = (() => {
@@ -579,6 +581,59 @@ function recordSourceWrites(projectRoot, milestone, relativePaths) {
   return { recorded, failures };
 }
 
+function roundNumber(round, index) {
+  const raw = round?.id ?? round?.roundNum ?? round?.round ?? index + 1;
+  const parsed = Number.parseInt(String(raw), 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : index + 1;
+}
+
+function splitRoundsByClassApplicability(projectRoot, plan) {
+  const classInfo = loadProjectClass(projectRoot);
+  const applicableRounds = [];
+  const skippedRounds = [];
+  for (const [index, round] of (plan.rounds || []).entries()) {
+    const roundNum = roundNumber(round, index);
+    const skipReason = skipReasonForRound(roundNum, classInfo.projectClass);
+    if (skipReason) {
+      skippedRounds.push({
+        roundNum,
+        name: round.name || skipReason.name || `round-${roundNum}`,
+        projectClass: classInfo.projectClass,
+        classSource: classInfo.source || null,
+        skipReason,
+      });
+    } else {
+      applicableRounds.push(round);
+    }
+  }
+  return { classInfo, applicableRounds, skippedRounds };
+}
+
+function writeSkippedRoundCheckpoint(paths, milestone, skippedRound) {
+  const payload = {
+    version: 1,
+    generatedAt: new Date().toISOString(),
+    generatedBy: 'cobolt-build-tdd-green-step.js (class-skip)',
+    milestone,
+    checkpoint: 'tdd-green',
+    status: 'skipped',
+    skipped: true,
+    classSkipped: true,
+    tddPhase: 'green',
+    round: skippedRound.roundNum,
+    roundName: skippedRound.name,
+    projectClass: skippedRound.projectClass,
+    classSource: skippedRound.classSource,
+    reason: skippedRound.skipReason.rationale,
+    skipReason: skippedRound.skipReason,
+    totalTestsPassing: 0,
+    totalTestsExecuted: 0,
+    fullTestResult: 'not_applicable',
+  };
+  writeJson(path.join(paths.checkpointsDir, `${milestone}-round-${skippedRound.roundNum}-green.json`), payload);
+  return payload;
+}
+
 function run(args, options = {}) {
   const milestone = normalizeMilestone(args.milestone);
   if (!milestone) return { ok: false, usage: true, error: 'A milestone like M1 is required.' };
@@ -602,6 +657,10 @@ function run(args, options = {}) {
 
   const toolsDir = path.resolve(options.toolsDir || resolveToolsDir(projectRoot));
   const plan = supported.plan || readPlan(projectRoot, milestone);
+  const classApplicability = splitRoundsByClassApplicability(projectRoot, plan);
+  const skippedRoundCheckpoints = classApplicability.skippedRounds.map((skippedRound) =>
+    writeSkippedRoundCheckpoint(paths, milestone, skippedRound),
+  );
   const contract = discoverContract(projectRoot, milestone);
   const filesCreated = [];
   const filesModified = [];
@@ -628,7 +687,7 @@ function run(args, options = {}) {
 
   const plannedFiles = [];
   let definedTests = 0;
-  for (const round of plan.rounds || []) {
+  for (const round of classApplicability.applicableRounds) {
     for (const testFile of round.testFiles || []) {
       const absolutePath = path.join(projectRoot, testFile.path);
       const content = renderTestFile(projectRoot, absolutePath, testFile, contract);
@@ -661,8 +720,12 @@ function run(args, options = {}) {
   const buildArtifacts = {
     milestone,
     generatedAt: new Date().toISOString(),
-    roundsExecuted: Number(plan.totalRounds || (plan.rounds || []).length || 0),
-    completedRounds: Number(plan.totalRounds || (plan.rounds || []).length || 0),
+    projectClass: classApplicability.classInfo.projectClass,
+    classSource: classApplicability.classInfo.source || null,
+    totalRounds: Number(plan.totalRounds || (plan.rounds || []).length || 0),
+    roundsExecuted: classApplicability.applicableRounds.length,
+    completedRounds: classApplicability.applicableRounds.length,
+    skippedRounds: classApplicability.skippedRounds,
     filesCreated: [...new Set(filesCreated)],
     filesModified: [...new Set(filesModified)],
     sourceWriteProvenance: sourceWriteProvenance.recorded,
@@ -674,7 +737,9 @@ function run(args, options = {}) {
     taskCompletion,
     capabilityProofs: [],
     summary: {
-      completedRounds: Number(plan.totalRounds || (plan.rounds || []).length || 0),
+      totalRounds: Number(plan.totalRounds || (plan.rounds || []).length || 0),
+      completedRounds: classApplicability.applicableRounds.length,
+      skippedRounds: classApplicability.skippedRounds.length,
       testsPassing: definedTests,
       testsFailing: 0,
     },
@@ -686,7 +751,11 @@ function run(args, options = {}) {
     milestone,
     passedAt: new Date().toISOString(),
     tddPhase: 'green',
-    roundsExecuted: Number(plan.totalRounds || (plan.rounds || []).length || 0),
+    projectClass: classApplicability.classInfo.projectClass,
+    totalRounds: Number(plan.totalRounds || (plan.rounds || []).length || 0),
+    roundsExecuted: classApplicability.applicableRounds.length,
+    roundsSkipped: classApplicability.skippedRounds.length,
+    skippedRounds: classApplicability.skippedRounds,
     totalTestsPassing: definedTests,
     totalTestsExecuted: definedTests,
     fullTestResult: 'passed',
@@ -751,6 +820,9 @@ function run(args, options = {}) {
         relative(projectRoot, paths.greenResultsPath),
         relative(projectRoot, paths.buildArtifactsPath),
         relative(projectRoot, paths.checkpointPath),
+        ...skippedRoundCheckpoints.map((entry) =>
+          relative(projectRoot, path.join(paths.checkpointsDir, `${milestone}-round-${entry.round}-green.json`)),
+        ),
       ],
       commandsExecuted: [
         {
@@ -786,6 +858,7 @@ function run(args, options = {}) {
     filesCreated: [...new Set(filesCreated)],
     filesModified: [...new Set(filesModified)],
     sourceWriteProvenance: sourceWriteProvenance.recorded,
+    skippedRounds: classApplicability.skippedRounds,
     proof,
   };
 }

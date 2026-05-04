@@ -659,6 +659,10 @@ const TOOLS = {
     file: './cobolt-build-complete-step.js',
     desc: 'Deterministic build Step 08 milestone completion wrapper with deferred-work and build-report artifacts',
   },
+  'class-applies': {
+    file: './cobolt-class-applies.js',
+    desc: 'Process-level skip predicate over the pipeline-class-rules registry; lets step files ask "does this round/step apply for the detected project class?"',
+  },
   'agent-failure-review': {
     file: './cobolt-agent-failure-review.js',
     desc: 'Scan agent/runtime failure evidence and write review-lead escalation packets with full context',

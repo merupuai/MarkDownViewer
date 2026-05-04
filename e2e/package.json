@@ -1,0 +1,4 @@
+{
+	"//": "Marks e2e/ as an ESM-only subtree. The project root is implicit-CJS because top-level package.json has no `type` field, but the Playwright config and specs are authored as ESM (use `import.meta.url`). This file makes Playwright's `fileIsModule()` return true for e2e/**/*.ts, so its ESM loader path runs, transforming TS via Babel and emitting ESM that Node 22 can execute cleanly. Without this, Node 22's `loadESMFromCJS` mis-routes the transformed output and throws `exports is not defined`.",
+	"type": "module"
+}

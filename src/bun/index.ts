@@ -1247,6 +1247,7 @@ mainWindow = new BrowserWindow({
 	url: "views://mainview/index.html",
 	rpc,
 	titleBarStyle: isMac ? "hiddenInset" : "hidden",
+	styleMask: { Resizable: true, FullSizeContentView: true },
 	frame: { width: 1240, height: 840, x: 120, y: 80 },
 });
 

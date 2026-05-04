@@ -133,6 +133,25 @@ DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
 	}
 });
 
+// Single source of truth for the DOMPurify allowlist. Used at every render
+// site — duplication previously let the lists drift (mermaid-render.ts had
+// "link" forbidden while the markdown pipeline didn't). Mirrored verbatim in
+// e2e/harness/renderer-harness.html so the hostile-content e2e tests exercise
+// the same surface the shipping app ships.
+//
+// FORBID_TAGS rationale (defense in depth — CSP catches the network attempts
+// at runtime, but these stop the DOM-level surface before CSP fires):
+//   script / iframe / object / embed → code execution
+//   style / link → CSS @import data exfiltration (CSP style-src is the runtime guard)
+//   base → relative-URL hijack (CSP base-uri 'none' is the runtime guard)
+//   meta → meta-refresh redirect (CSP does not cover this)
+const SANITIZE_OPTIONS = {
+	ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
+	ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
+	FORBID_TAGS: ["script", "iframe", "object", "embed", "style", "link", "base", "meta"],
+	ALLOW_DATA_ATTR: true,
+};
+
 // ============== Markdown pipeline ==============
 const md = buildMarkdown();
 
@@ -296,12 +315,7 @@ function getCachedRender(content: string): RenderCacheEntry {
 		return hit;
 	}
 	const parsed = parseDocument(md, content);
-	const safeBody = DOMPurify.sanitize(parsed.html, {
-		ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
-		ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
-		FORBID_TAGS: ["script", "iframe", "object", "embed"],
-		ALLOW_DATA_ATTR: true,
-	});
+	const safeBody = DOMPurify.sanitize(parsed.html, SANITIZE_OPTIONS);
 	const entry: RenderCacheEntry = {
 		parsedHtml: parsed.html,
 		frontMatter: parsed.frontMatter,
@@ -1174,12 +1188,7 @@ function renderPreviewIntoContent(content: string, format: string) {
 	const fmErrorHtml = parsed.frontMatterError
 		? `<aside class="fm-error" role="status" aria-live="polite">⚠ Front-matter parse error: ${escAttr(parsed.frontMatterError)}<br><span class="fm-error-hint">The file is rendered without front-matter.</span></aside>`
 		: "";
-	const safeBody = DOMPurify.sanitize(parsed.html, {
-		ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
-		ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
-		FORBID_TAGS: ["script", "iframe", "object", "embed"],
-		ALLOW_DATA_ATTR: true,
-	});
+	const safeBody = DOMPurify.sanitize(parsed.html, SANITIZE_OPTIONS);
 	contentEl.innerHTML = fmErrorHtml + fmHtml + safeBody;
 	wireCodeCopyButtons();
 	renderMermaidBlocks();

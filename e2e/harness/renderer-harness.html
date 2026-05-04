@@ -77,7 +77,7 @@
 				const safeBody = DOMPurify.sanitize(rawHtml, {
 					ADD_ATTR: ["class", "id", "style", "src", "alt", "title", "href", "target", "data-rel-src"],
 					ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br"],
-					FORBID_TAGS: ["script", "iframe", "object", "embed"],
+					FORBID_TAGS: ["script", "iframe", "object", "embed", "style", "link", "base", "meta"],
 					ALLOW_DATA_ATTR: true,
 				});
 				const target = document.getElementById("content");

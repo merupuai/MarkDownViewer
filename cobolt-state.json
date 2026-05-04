@@ -46,7 +46,8 @@
     },
     "autonomous": true,
     "mode": "autonomous",
-    "teamActive": false
+    "teamActive": false,
+    "lightweight": false
   },
   "prQueue": {
     "watchedRepos": [],

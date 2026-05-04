@@ -307,8 +307,39 @@ function buildIntakeProfile(bfDir, mode, text) {
         snippet: item.snippet,
       })),
   ];
-  const regulatedDataDetected = regulatedEvidence.length > 0;
-  const internetExposure = exposureEvidence.length > 0;
+
+  // v0.66.5 (Wave 4 C-2): minimum-evidence threshold to prevent single weak
+  // signals from flipping the booleans. Closes the user-reported "defaults
+  // are 'regulated, internet-exposed, multi-framework' — wrong for most apps"
+  // diagnostic. Default threshold is 1 (preserves v0.66.4 behavior). Operators
+  // can raise via COBOLT_BROWNFIELD_MIN_EVIDENCE_HITS to demand stronger signal
+  // before the boolean flips. When the threshold is set above 1 and evidence
+  // exists but is below threshold, the boolean reports false with a tentative
+  // advisory so the schema's evidence-array contract is not violated.
+  const minHits = (() => {
+    const raw = Number.parseInt(process.env.COBOLT_BROWNFIELD_MIN_EVIDENCE_HITS || '1', 10);
+    return Number.isFinite(raw) && raw >= 1 ? raw : 1;
+  })();
+  const regulatedDataDetected = regulatedEvidence.length >= minHits;
+  const regulatedDataAdvisory =
+    regulatedEvidence.length > 0 && !regulatedDataDetected
+      ? {
+          status: 'tentative',
+          evidenceCount: regulatedEvidence.length,
+          requiredHits: minHits,
+          message: `Found ${regulatedEvidence.length} regulation/category evidence item(s) but minimum threshold is ${minHits}. Set COBOLT_BROWNFIELD_MIN_EVIDENCE_HITS=1 to flip the boolean on a single signal, or accept the tentative classification.`,
+        }
+      : null;
+  const internetExposure = exposureEvidence.length >= minHits;
+  const internetExposureAdvisory =
+    exposureEvidence.length > 0 && !internetExposure
+      ? {
+          status: 'tentative',
+          evidenceCount: exposureEvidence.length,
+          requiredHits: minHits,
+          message: `Found ${exposureEvidence.length} exposure evidence item(s) but minimum threshold is ${minHits}.`,
+        }
+      : null;
   const internetExposureEvidence = exposureEvidence.map((item) => ({
     label: item.label,
     sourceArtifact: item.sourceArtifact,
@@ -360,6 +391,12 @@ function buildIntakeProfile(bfDir, mode, text) {
 
   if (regulatedDataDetected) profile.regulatedEvidence = regulatedEvidence;
   if (internetExposure) profile.internetExposureEvidence = internetExposureEvidence;
+  // v0.66.5 (Wave 4 C-2): surface tentative-classification advisories so log
+  // readers and downstream gates can see "evidence found but below threshold"
+  // distinctly from "no evidence found at all".
+  if (regulatedDataAdvisory) profile.regulatedDataAdvisory = regulatedDataAdvisory;
+  if (internetExposureAdvisory) profile.internetExposureAdvisory = internetExposureAdvisory;
+  profile.evidenceThresholds = { minHits, source: 'COBOLT_BROWNFIELD_MIN_EVIDENCE_HITS' };
 
   return profile;
 }

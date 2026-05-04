@@ -202,6 +202,7 @@ function writeAuditTrail(result, projectRoot = process.cwd()) {
       canonical: result.canonical,
       applied_defaults: result.applied_defaults,
       explicit_overrides: result.explicit_overrides,
+      lightweight: result.lightweight,
     };
     fs.appendFileSync(path.join(auditDir, 'build-auto-defaults.jsonl'), `${JSON.stringify(record)}\n`, {
       encoding: 'utf8',
@@ -209,6 +210,22 @@ function writeAuditTrail(result, projectRoot = process.cwd()) {
     });
   } catch {
     /* best effort */
+  }
+  // v0.66.5 (Wave 3c 3c-3): persist the lightweight flag into cobolt-state so
+  // downstream hooks/tools can read it without re-parsing argv. Best-effort —
+  // never blocks normalize. The TDD gate's isLightweightMode() honors both
+  // env and this state field, so in-process calls already work; this write
+  // ensures cross-process consumers (subprocess gates) see the same answer.
+  try {
+    const statePath = path.join(projectRoot, 'cobolt-state.json');
+    if (fs.existsSync(statePath)) {
+      const state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+      state.pipeline = state.pipeline || {};
+      state.pipeline.lightweight = Boolean(result.lightweight);
+      fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+    }
+  } catch {
+    /* best effort — state may be locked or absent */
   }
 }
 
