@@ -238,17 +238,26 @@ async function readMarkdownFile(path: string): Promise<FilePayload> {
 //   5. Return {ok:true, savedAt, mtimeMs (post-write), bytes}.
 const MAX_SAVE_BYTES = 50 * 1024 * 1024; // 50 MB sanity cap
 
-async function saveDocumentFile(path: string, content: string, expectedMtimeMs?: number) {
+async function saveDocumentFile(
+	path: string,
+	content: string,
+	expectedMtimeMs?: number,
+	meta?: { encoding?: Encoding; eol?: EOL; bom?: boolean; allowLossy?: boolean },
+) {
 	// Path validation
 	if (!path || typeof path !== "string" || path.length > 4096 || path.includes("\0")) {
 		return { ok: false, error: "unsafe-path", message: "path empty / too long / contains NUL" } as const;
 	}
-	const buf = Buffer.from(content, "utf8");
-	if (buf.length > MAX_SAVE_BYTES) {
-		return { ok: false, error: "too-large", bytes: buf.length } as const;
-	}
 
-	// Conflict detection
+	// L2/L3 (Path B delta): encoding metadata. Defaults preserve M3 behavior
+	// (utf-8 / lf / no-bom / no allowLossy) when the renderer doesn't pass them.
+	const encoding: Encoding = meta?.encoding || "utf-8";
+	const eol: EOL = meta?.eol || "lf";
+	const bom = meta?.bom || false;
+	const allowLossy = meta?.allowLossy || false;
+
+	// Conflict detection (runs BEFORE byte production so we don't burn cycles
+	// encoding for a stale write).
 	if (expectedMtimeMs !== undefined && existsSync(path)) {
 		try {
 			const diskMtimeMs = statSync(path).mtimeMs;
@@ -267,12 +276,32 @@ async function saveDocumentFile(path: string, content: string, expectedMtimeMs?:
 		}
 	}
 
-	// Atomic write: tmp + rename
+	// Atomic write: tmp + rename. Byte production goes through text-io.writeText
+	// which handles BOM stamping, EOL conversion, per-encoding encoding, and
+	// L3 lossy-encoding refusal (Latin-1 with non-Latin-1 chars unless allowLossy).
 	const dir = dirname(path);
 	const base = basename(path);
 	const tmpPath = join(dir, `.${base}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
 	try {
-		writeFileSync(tmpPath, buf);
+		const writeRes = await writeText(tmpPath, content, { encoding, eol, bom }, { allowLossy });
+		if (writeRes.ok === false) {
+			// L3: surface the lossy refusal back to the renderer
+			return { ok: false, error: "lossy", lossy: writeRes.lossy } as const;
+		}
+
+		// Size cap — computed post-write since byte length depends on encoding
+		// (utf-16 ≈ 2× utf-8 for ASCII; latin-1 = 1× for the same).
+		let bytes: number;
+		try {
+			bytes = statSync(tmpPath).size;
+			if (bytes > MAX_SAVE_BYTES) {
+				try { (require("fs") as typeof import("fs")).unlinkSync(tmpPath); } catch {}
+				return { ok: false, error: "too-large", bytes } as const;
+			}
+		} catch (err) {
+			return { ok: false, error: "io-failure", message: `stat tmp failed: ${String(err)}` } as const;
+		}
+
 		// Best-effort: preserve mode (0644 on POSIX) so saved files don't
 		// suddenly become world-writable.
 		if (process.platform !== "win32") {
@@ -304,11 +333,14 @@ async function saveDocumentFile(path: string, content: string, expectedMtimeMs?:
 			} as const;
 		}
 		const finalMtime = statSync(path).mtimeMs;
+		// Surface lossyChars when caller opted in to a lossy save
+		const lossyChars = (writeRes.ok === true && writeRes.lossyChars) ? { lossyChars: writeRes.lossyChars } : {};
 		return {
 			ok: true,
 			savedAt: Date.now(),
 			mtimeMs: finalMtime,
-			bytes: buf.length,
+			bytes,
+			...lossyChars,
 		} as const;
 	} catch (err) {
 		// Cleanup tmp if it exists
@@ -673,13 +705,14 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 				}
 				return payload;
 			},
-			// M3.S2 + M3.S6: atomic save with optimistic concurrency check.
-			saveFile: async ({ path, content, expectedMtimeMs }) => {
+			// M3.S2 + M3.S6 + Path-B L2/L3: atomic save with optimistic concurrency
+			// check + encoding awareness + lossy-encoding refusal.
+			saveFile: async ({ path, content, expectedMtimeMs, encoding, eol, bom, allowLossy }) => {
 				const real = urlToPath(path);
-				const result = await saveDocumentFile(real, content, expectedMtimeMs);
+				const result = await saveDocumentFile(real, content, expectedMtimeMs, { encoding, eol, bom, allowLossy });
 				if (result.ok) {
 					pushRecent(real);
-					dbg("[mv] saveFile OK", real, "bytes=", result.bytes);
+					dbg("[mv] saveFile OK", real, "bytes=", result.bytes, "lossyChars=", result.lossyChars);
 				} else {
 					dbg("[mv] saveFile FAIL", real, "error=", result.error);
 				}
