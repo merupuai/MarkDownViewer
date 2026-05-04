@@ -1,11 +1,16 @@
 import Electrobun, { Electroview } from "electrobun/view";
-import mermaid from "mermaid";
 import DOMPurify from "isomorphic-dompurify";
 import type { AppRPC, FilePayload, FolderPayload, TreeNode, RecentEntry, SearchResults } from "../../src/shared/rpc";
 import { buildMarkdown, parseDocument, renderFrontMatterCard } from "./markdown";
 import { createFindController } from "./find-in-doc";
 import { createLightbox } from "./lightbox";
-import { renderSafe as renderSafeMermaid } from "./mermaid-render";
+// M4.S1 (closes ENH-011 / PERF-001): mermaid is lazy-loaded — the ~1MB bundle
+// only enters the renderer's working set when a document actually contains
+// diagrams. configureMermaidLazy queues a config that's applied on first load.
+import { renderSafe as renderSafeMermaid, configureMermaidLazy } from "./mermaid-render";
+import { createEditorApp, type EditorAppApi } from "./editor/editor-app";
+import type { EditorTab } from "./editor/editor-state";
+import { parseBibtex, formatInlineCitation, formatBibliographyEntry, type BibEntry } from "./bibtex";
 
 // ============== RPC ==============
 const rpc = Electroview.defineRPC<AppRPC>({
@@ -65,15 +70,46 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
 	}
 });
 
-// ============== Mermaid ==============
-function configureMermaid() {
-	mermaid.initialize({
-		startOnLoad: false,
-		theme: effectiveTheme() === "dark" ? "dark" : "default",
-		securityLevel: "loose",
-		fontFamily: "var(--font-sans)",
-	});
+// ============== Mermaid (M4.S1 lazy + M4.S7 user theme) ==============
+// configureMermaid queues an `initialize` against the lazy mermaid loader.
+// M4.S7: if the user has a mermaid-theme.json file in their user-data dir,
+// fetch it once and merge with the default config (user values win). The
+// fetch is async + cached; if it fails, we fall back to defaults silently
+// (the bun side already logged the parse error).
+let mermaidUserOverride: Record<string, unknown> | null = null;
+let mermaidOverrideFetched = false;
+async function fetchMermaidOverrideOnce() {
+	if (mermaidOverrideFetched) return;
+	mermaidOverrideFetched = true;
+	try {
+		const r = await electroview.rpc!.request.getMermaidThemeOverride({});
+		if (r.error) rlog("warn", "[mermaid-theme] override parse error:", r.error);
+		mermaidUserOverride = r.override || null;
+	} catch (err) {
+		rlog("warn", "[mermaid-theme] RPC failed:", String(err));
+	}
 }
+function configureMermaid() {
+	// Theme literal narrowed to mermaid's enum so the merged config keeps its
+	// strict type. User override (M4.S7) is unknown shape; we cast to the
+	// loose Parameters<…>[0] type at the merge point so user values can
+	// override our defaults without us having to enumerate every legal field.
+	const theme: "dark" | "default" = effectiveTheme() === "dark" ? "dark" : "default";
+	const baseConfig = {
+		startOnLoad: false,
+		theme,
+		securityLevel: "loose" as const,
+		fontFamily: "var(--font-sans)",
+	};
+	const merged = mermaidUserOverride
+		? { ...baseConfig, ...mermaidUserOverride }
+		: baseConfig;
+	void configureMermaidLazy(merged as Parameters<typeof configureMermaidLazy>[0]);
+}
+// Fetch user override, then configure. If override fetch is still in-flight
+// when configureMermaid is called (e.g. from theme toggle), the next configure
+// call will pick it up — mermaidLazy's pendingConfig is overwrite-safe.
+void fetchMermaidOverrideOnce().then(() => configureMermaid());
 configureMermaid();
 
 // ============== DOMPurify hardening (M1.S2 — closes SEC-003 / FR-05) ==============
@@ -163,9 +199,17 @@ const lightbox = createLightbox({
 	stageEl: lightboxStage,
 });
 
+// M4.S3 (DEBT-005): named constants replacing magic numbers
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 2.5;
+const ZOOM_BASE_FONT_PX = 15;
+const SIDEBAR_MIN_PX = 180;
+const SIDEBAR_MAX_PX = 560;
+const FOLDER_SEARCH_DEBOUNCE_MS = 250;
+
 function setZoom(z: number) {
-	zoom = Math.max(0.6, Math.min(2.5, z));
-	contentEl.style.fontSize = `${15 * zoom}px`;
+	zoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, z));
+	contentEl.style.fontSize = `${ZOOM_BASE_FONT_PX * zoom}px`;
 	statusZoom.textContent = `${Math.round(zoom * 100)}%`;
 }
 
@@ -186,7 +230,7 @@ resizeHandle.addEventListener("mousedown", (e) => {
 });
 window.addEventListener("mousemove", (e) => {
 	if (!resizing) return;
-	const w = Math.max(180, Math.min(560, e.clientX));
+	const w = Math.max(SIDEBAR_MIN_PX, Math.min(SIDEBAR_MAX_PX, e.clientX));
 	document.documentElement.style.setProperty("--sidebar-w", `${w}px`);
 });
 window.addEventListener("mouseup", () => {
@@ -198,21 +242,78 @@ window.addEventListener("mouseup", () => {
 });
 // M1.S8: keyboard control for the resize handle. ←/→ nudge by 16 px,
 // Home/End jump to the min/max so keyboard-only users can adjust the sidebar.
+const SIDEBAR_DEFAULT_PX = 260;
+const SIDEBAR_KEY_NUDGE_PX = 16;
 resizeHandle.addEventListener("keydown", (e) => {
-	const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-w"), 10) || 260;
+	const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-w"), 10) || SIDEBAR_DEFAULT_PX;
 	let next = current;
-	if (e.key === "ArrowLeft") next = current - 16;
-	else if (e.key === "ArrowRight") next = current + 16;
-	else if (e.key === "Home") next = 180;
-	else if (e.key === "End") next = 560;
+	if (e.key === "ArrowLeft") next = current - SIDEBAR_KEY_NUDGE_PX;
+	else if (e.key === "ArrowRight") next = current + SIDEBAR_KEY_NUDGE_PX;
+	else if (e.key === "Home") next = SIDEBAR_MIN_PX;
+	else if (e.key === "End") next = SIDEBAR_MAX_PX;
 	else return;
 	e.preventDefault();
-	const clamped = Math.max(180, Math.min(560, next));
+	const clamped = Math.max(SIDEBAR_MIN_PX, Math.min(SIDEBAR_MAX_PX, next));
 	document.documentElement.style.setProperty("--sidebar-w", `${clamped}px`);
 	try { localStorage.setItem("sidebar-w", `${clamped}px`); } catch {}
 });
 const savedW = (() => { try { return localStorage.getItem("sidebar-w"); } catch { return null; } })();
 if (savedW) document.documentElement.style.setProperty("--sidebar-w", savedW);
+
+// ============== Render cache (M4.S2 — closes PERF-002 / MOD-007 / NFR-02) ==============
+// Theme toggle re-runs renderFile to pick up the new CSS variables — but the
+// PARSE + DOMPURIFY phases produce the exact same output regardless of theme
+// (theme is purely CSS-driven for everything except mermaid, which gets its
+// own per-theme render anyway). Caching the parse+purify result by content
+// hash makes theme toggle close to free for documents the user has already
+// rendered. Cache is bounded to the last 8 documents (LRU-ish via insertion
+// order) so it doesn't grow unbounded across long sessions.
+type RenderCacheEntry = {
+	parsedHtml: string;
+	frontMatter: ReturnType<typeof parseDocument>["frontMatter"];
+	body: string;
+	frontMatterError?: string;
+	safeBody: string;
+};
+const renderCache = new Map<string, RenderCacheEntry>();
+const RENDER_CACHE_MAX = 8;
+function djb2Hash(s: string): string {
+	// Fast non-crypto hash; 8 entries don't need collision-free, just stable.
+	let h = 5381;
+	for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+	return h.toString(36);
+}
+function getCachedRender(content: string): RenderCacheEntry {
+	const key = djb2Hash(content);
+	const hit = renderCache.get(key);
+	if (hit) {
+		// Refresh insertion order so recent docs survive eviction.
+		renderCache.delete(key);
+		renderCache.set(key, hit);
+		return hit;
+	}
+	const parsed = parseDocument(md, content);
+	const safeBody = DOMPurify.sanitize(parsed.html, {
+		ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
+		ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
+		FORBID_TAGS: ["script", "iframe", "object", "embed"],
+		ALLOW_DATA_ATTR: true,
+	});
+	const entry: RenderCacheEntry = {
+		parsedHtml: parsed.html,
+		frontMatter: parsed.frontMatter,
+		body: parsed.body,
+		frontMatterError: parsed.frontMatterError,
+		safeBody,
+	};
+	renderCache.set(key, entry);
+	if (renderCache.size > RENDER_CACHE_MAX) {
+		// Evict oldest (first key in insertion order)
+		const oldestKey = renderCache.keys().next().value;
+		if (oldestKey !== undefined) renderCache.delete(oldestKey);
+	}
+	return entry;
+}
 
 // ============== Rendering ==============
 async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean } = {}) {
@@ -232,9 +333,10 @@ async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean
 
 	rlog("info", `renderFile: ${payload.path} (${payload.content.length} bytes)`);
 	const t0 = performance.now();
-	const parsed = parseDocument(md, payload.content);
+	const cached = getCachedRender(payload.content);
+	const parsed = { html: cached.parsedHtml, frontMatter: cached.frontMatter, body: cached.body, frontMatterError: cached.frontMatterError };
 	const t1 = performance.now();
-	rlog("info", `parsed in ${(t1 - t0).toFixed(1)}ms; html=${parsed.html.length}b; frontmatter=${parsed.frontMatter ? Object.keys(parsed.frontMatter).length + " keys" : "none"}`);
+	rlog("info", `parsed in ${(t1 - t0).toFixed(1)}ms (${renderCache.has(djb2Hash(payload.content)) ? "cached" : "fresh"}); html=${parsed.html.length}b; frontmatter=${parsed.frontMatter ? Object.keys(parsed.frontMatter).length + " keys" : "none"}`);
 	const fmHtml = renderFrontMatterCard(parsed.frontMatter);
 	// M1.S6 (closes SEC-004 / FR-07): user-visible error banner when the YAML
 	// front-matter block is malformed. We DO NOT include the offending body
@@ -243,12 +345,7 @@ async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean
 	const fmErrorHtml = parsed.frontMatterError
 		? `<aside class="fm-error" role="status" aria-live="polite">⚠ Front-matter parse error: ${escAttr(parsed.frontMatterError)}<br><span class="fm-error-hint">The file is rendered without front-matter.</span></aside>`
 		: "";
-	const safeBody = DOMPurify.sanitize(parsed.html, {
-		ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
-		ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
-		FORBID_TAGS: ["script", "iframe", "object", "embed"],
-		ALLOW_DATA_ATTR: true,
-	});
+	const safeBody = cached.safeBody;
 	const stripped = parsed.html.length - safeBody.length;
 	if (stripped > 0) {
 		// Find which tags/attrs got stripped — diff sample
@@ -267,6 +364,7 @@ async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean
 	wireWikilinks();
 	await resolveImages(payload.path);
 	await renderMermaidBlocks();
+	await resolveCitations(payload.path);
 	buildTOC();
 
 	// Final render report
@@ -290,8 +388,12 @@ async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean
 	contentPane.scrollTop = opts.preserveScroll ? prevScroll : 0;
 }
 
+// M4.S3 (DEBT-006): consolidated escAttr — markdown.ts had the canonical
+// implementation including the apostrophe escape. The renderer's version was
+// missing it, which let attacker-controlled error messages with apostrophes
+// produce malformed HTML. Now both files share the same 5-char escape set.
 function escAttr(s: string): string {
-	return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/'/g, "&#39;");
 }
 
 function computeStats(text: string): string {
@@ -303,6 +405,10 @@ function computeStats(text: string): string {
 
 async function renderMermaidBlocks() {
 	const blocks = Array.from(contentEl.querySelectorAll<HTMLElement>(".mermaid-pending"));
+	// M4.S1: if there are no pending blocks, return early WITHOUT triggering
+	// the mermaid lazy import. This is the dominant code path for documents
+	// that contain no diagrams, and is the entire point of lazy loading.
+	if (blocks.length === 0) return;
 	rlog("info", `mermaid: ${blocks.length} blocks to render`);
 	for (let i = 0; i < blocks.length; i++) {
 		const block = blocks[i];
@@ -449,6 +555,62 @@ async function resolveImages(docPath: string) {
 			lightboxEl.hidden = false;
 		});
 	});
+}
+
+// ============== M4.S10 Citations ==============
+// Walk every <span class="citation"> placeholder, look up keys in the
+// adjacent references.bib (loaded once per document path via RPC), and
+// replace the [?] text with author-year. Append a numbered bibliography
+// at the end of the document.
+const bibCache = new Map<string, Record<string, BibEntry>>();
+async function resolveCitations(docPath: string) {
+	const placeholders = Array.from(contentEl.querySelectorAll<HTMLElement>("span.citation[data-cite-keys]"));
+	if (placeholders.length === 0) return;
+	let bib = bibCache.get(docPath);
+	if (!bib) {
+		try {
+			const r = await electroview.rpc!.request.readBibFile({ docPath });
+			if (r.content) {
+				bib = parseBibtex(r.content);
+				bibCache.set(docPath, bib);
+				rlog("info", `[bib] loaded ${Object.keys(bib).length} entries from ${r.path}`);
+			} else {
+				bib = {};
+				bibCache.set(docPath, bib);
+			}
+		} catch (err) {
+			rlog("warn", "[bib] RPC failed:", String(err));
+			bib = {};
+		}
+	}
+	// Assign numbers to first-seen keys for the bibliography
+	const seenOrder: string[] = [];
+	for (const ph of placeholders) {
+		const keys = (ph.dataset.citeKeys || "").split(";").filter(Boolean);
+		const display = keys.map((key) => {
+			const entry = bib![key];
+			if (!entry) {
+				ph.classList.add("citation-missing");
+				return `?${key}`;
+			}
+			if (!seenOrder.includes(key)) seenOrder.push(key);
+			const num = seenOrder.indexOf(key) + 1;
+			return formatInlineCitation(entry, num);
+		}).join("; ");
+		ph.textContent = `[${display}]`;
+	}
+	// Render bibliography section if there are resolved citations
+	if (seenOrder.length > 0) {
+		const existing = contentEl.querySelector(".bibliography");
+		if (existing) existing.remove();
+		const section = document.createElement("section");
+		section.className = "bibliography";
+		section.innerHTML = `<h2>References</h2><ol>${seenOrder.map((key) => {
+			const entry = bib![key];
+			return `<li id="cite-${key.replace(/[^a-zA-Z0-9_-]/g, "_")}">${formatBibliographyEntry(entry)}</li>`;
+		}).join("")}</ol>`;
+		contentEl.appendChild(section);
+	}
 }
 
 // ============== TOC ==============
@@ -604,13 +766,23 @@ function applyTreeFilter(query: string) {
 		}
 	});
 }
-treeFilter.addEventListener("input", () => applyTreeFilter(treeFilter.value));
+// M4.S3 (DEBT-009): debounce tree filter — every keystroke previously walked
+// every row in a 5000-entry tree. 100ms collapses bursts.
+const TREE_FILTER_DEBOUNCE_MS = 100;
+let treeFilterTimer: ReturnType<typeof setTimeout> | null = null;
+treeFilter.addEventListener("input", () => {
+	if (treeFilterTimer) clearTimeout(treeFilterTimer);
+	treeFilterTimer = setTimeout(() => {
+		treeFilterTimer = null;
+		applyTreeFilter(treeFilter.value);
+	}, TREE_FILTER_DEBOUNCE_MS);
+});
 
 // ============== Folder search ==============
 let searchDebounce: ReturnType<typeof setTimeout> | null = null;
 function scheduleFolderSearch() {
 	if (searchDebounce) clearTimeout(searchDebounce);
-	searchDebounce = setTimeout(runFolderSearch, 250);
+	searchDebounce = setTimeout(runFolderSearch, FOLDER_SEARCH_DEBOUNCE_MS);
 }
 async function runFolderSearch() {
 	const q = folderSearchInput.value.trim();
@@ -836,6 +1008,21 @@ function handleMenuAction(action: string) {
 		case "reveal-in-finder": if (lastPayload?.path) revealInFinder(lastPayload.path); break;
 		case "print": doPrint(); break;
 		case "export-html": exportHtml(); break;
+		// M3 integration: edit-mode menu actions wired by editor-app
+		case "toggle-edit-mode": toggleEditMode(); break;
+		case "save": editorApp?.saveActive(); break;
+		case "save-as": rlog("warn", "Save As not yet implemented (M3 deferred)"); break;
+		case "close-tab": editorApp?.closeActive(); break;
+		// M4 polish menu actions
+		case "save-crash-report": saveCrashReport(); break;
+		case "copy-outline": copyOutlineToClipboard(); break;
+		case "export-pdf":
+			// M4.S4: just route to the OS print dialog with a hint that
+			// "Save as PDF" is the desired destination. Platforms vary in
+			// label but every modern desktop OS ships a virtual PDF printer.
+			notify("Use \"Save as PDF\" or your PDF printer in the print dialog", "info");
+			doPrint();
+			break;
 	}
 }
 
@@ -856,7 +1043,216 @@ window.addEventListener("keydown", (e) => {
 	else if (k === "f") { e.preventDefault(); if (e.shiftKey) { selectTab("search"); folderSearchInput.focus(); } else { find.toggle(); } }
 	else if (k === "p") { e.preventDefault(); doPrint(); }
 	else if (k === "r" && e.shiftKey && lastPayload?.path) { e.preventDefault(); revealInFinder(lastPayload.path); }
+	// M3 edit-mode shortcuts
+	else if (k === "e" && e.shiftKey) { e.preventDefault(); toggleEditMode(); }
+	else if (k === "s") { e.preventDefault(); if (editorApp && document.body.dataset.mode === "edit") editorApp.saveActive(); }
+	else if (k === "w" && document.body.dataset.mode === "edit") { e.preventDefault(); editorApp?.closeActive(); }
 });
+
+// ============== M3 Edit-mode integration ==============
+//
+// editorApp is created on first toggleEditMode() call (lazy) and reused
+// thereafter. View mode is the default; edit mode flips body[data-mode]
+// and CSS handles the layout switch. confirmCloseDirty/confirmConflict
+// callbacks open the in-renderer modal and resolve a Promise with the
+// user's choice.
+let editorApp: EditorAppApi | null = null;
+
+const confirmModalEl = document.getElementById("confirm-modal") as HTMLElement;
+const confirmTitleEl = document.getElementById("confirm-title") as HTMLElement;
+const confirmMessageEl = document.getElementById("confirm-message") as HTMLElement;
+const confirmButtonsEl = document.getElementById("confirm-buttons") as HTMLElement;
+
+type ConfirmButton = { label: string; value: string; primary?: boolean; destructive?: boolean };
+
+function openConfirm(title: string, message: string, buttons: ConfirmButton[]): Promise<string> {
+	return new Promise((resolve) => {
+		confirmTitleEl.textContent = title;
+		confirmMessageEl.textContent = message;
+		confirmButtonsEl.replaceChildren();
+		const previouslyFocused = (document.activeElement instanceof HTMLElement) ? document.activeElement : null;
+		const cleanup = (value: string) => {
+			confirmModalEl.hidden = true;
+			document.removeEventListener("keydown", onKey, true);
+			if (previouslyFocused && previouslyFocused.isConnected) {
+				try { previouslyFocused.focus(); } catch {}
+			}
+			resolve(value);
+		};
+		const onKey = (e: KeyboardEvent) => {
+			if (e.key === "Escape") { e.preventDefault(); cleanup("cancel"); }
+			else if (e.key === "Enter") {
+				const primary = buttons.find((b) => b.primary);
+				if (primary) { e.preventDefault(); cleanup(primary.value); }
+			}
+		};
+		document.addEventListener("keydown", onKey, true);
+		for (const b of buttons) {
+			const btn = document.createElement("button");
+			btn.type = "button";
+			btn.className = "btn " + (b.primary ? "btn-primary" : b.destructive ? "btn-ghost" : "btn-ghost");
+			btn.textContent = b.label;
+			btn.addEventListener("click", () => cleanup(b.value));
+			confirmButtonsEl.appendChild(btn);
+		}
+		confirmModalEl.hidden = false;
+		// Move focus to the primary (or last) button
+		const primaryBtn = confirmButtonsEl.querySelector<HTMLButtonElement>(".btn-primary") || confirmButtonsEl.querySelector<HTMLButtonElement>("button");
+		try { primaryBtn?.focus(); } catch {}
+	});
+}
+
+async function confirmCloseDirty(tab: EditorTab): Promise<"save" | "discard" | "cancel"> {
+	const name = tab.path ? tab.path.split(/[\\/]/).pop() : "untitled";
+	const choice = await openConfirm(
+		"Unsaved changes",
+		`"${name}" has unsaved changes.\nDo you want to save before closing?`,
+		[
+			{ label: "Cancel", value: "cancel" },
+			{ label: "Discard", value: "discard", destructive: true },
+			{ label: "Save", value: "save", primary: true },
+		],
+	);
+	return (choice === "save" || choice === "discard") ? choice : "cancel";
+}
+
+async function confirmConflict(tab: EditorTab, diskMtimeMs: number): Promise<"save-anyway" | "reload" | "cancel"> {
+	const name = tab.path ? tab.path.split(/[\\/]/).pop() : "untitled";
+	const diskTs = new Date(diskMtimeMs).toLocaleString();
+	const choice = await openConfirm(
+		"File changed on disk",
+		`"${name}" was modified on disk during your edit (last change ${diskTs}).\nReload from disk and lose your edits, save anyway and overwrite, or cancel?`,
+		[
+			{ label: "Cancel", value: "cancel" },
+			{ label: "Reload from disk", value: "reload", destructive: true },
+			{ label: "Save anyway", value: "save-anyway", primary: true },
+		],
+	);
+	return (choice === "save-anyway" || choice === "reload") ? choice : "cancel";
+}
+
+function notify(message: string, level: "info" | "warn" | "error") {
+	rlog(level, "[editor]", message);
+	// Reuse the status-stats area for transient notification (~3s).
+	statusStats.textContent = message;
+	setTimeout(() => {
+		if (lastPayload && document.body.dataset.mode === "view") {
+			statusStats.textContent = computeStats(parseDocument(md, lastPayload.content).body);
+		}
+	}, 3000);
+}
+
+// renderPreview — same M1-hardened pipeline as renderFile, but writes to the
+// preview pane instead of replacing lastPayload state. IR-13-01 compliance.
+function renderPreviewIntoContent(content: string, format: string) {
+	if (format !== "markdown") {
+		// Plain-text / json / yaml / toml: render as <pre> with content-text.
+		const pre = document.createElement("pre");
+		pre.className = "editor-preview-plain";
+		pre.style.fontFamily = "var(--font-mono)";
+		pre.style.padding = "16px";
+		pre.style.whiteSpace = "pre-wrap";
+		pre.textContent = content;
+		contentEl.replaceChildren(pre);
+		return;
+	}
+	// Markdown — full pipeline
+	const parsed = parseDocument(md, content);
+	const fmHtml = renderFrontMatterCard(parsed.frontMatter);
+	const fmErrorHtml = parsed.frontMatterError
+		? `<aside class="fm-error" role="status" aria-live="polite">⚠ Front-matter parse error: ${escAttr(parsed.frontMatterError)}<br><span class="fm-error-hint">The file is rendered without front-matter.</span></aside>`
+		: "";
+	const safeBody = DOMPurify.sanitize(parsed.html, {
+		ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
+		ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
+		FORBID_TAGS: ["script", "iframe", "object", "embed"],
+		ALLOW_DATA_ATTR: true,
+	});
+	contentEl.innerHTML = fmErrorHtml + fmHtml + safeBody;
+	wireCodeCopyButtons();
+	renderMermaidBlocks();
+}
+
+function ensureEditorApp(): EditorAppApi {
+	if (editorApp) return editorApp;
+	editorApp = createEditorApp({
+		tabsContainer: document.getElementById("editor-tabs") as HTMLElement,
+		editorContainer: document.getElementById("editor-pane") as HTMLElement,
+		previewContainer: contentEl,
+		rpc: {
+			readFile: (params) => electroview.rpc!.request.readFile(params),
+			saveFile: (params) => electroview.rpc!.request.saveFile(params),
+			// L4 (Path B delta): Save As for untitled
+			saveAsDialog: (params) => electroview.rpc!.request.saveAsDialog(params),
+			detectFormat: (params) => electroview.rpc!.request.detectFormat(params),
+		},
+		renderPreview: renderPreviewIntoContent,
+		confirmCloseDirty,
+		confirmConflict,
+		// L3 (Path B delta): F2 lossy-encoding confirm — uses native window.confirm
+		// for now; can upgrade to a custom modal later if UX warrants.
+		confirmLossy: (lossy) => Promise.resolve(window.confirm(
+			`Saving as ${lossy.encoding.toUpperCase()} will lose ${lossy.lossyCharCount} character(s) ` +
+			`that aren't representable in ${lossy.encoding}.\n\n` +
+			`First lossy char at index ${lossy.firstIndex}. Surrounding text: "${lossy.sample}"\n\n` +
+			`Save anyway?`
+		)),
+		notify,
+	});
+	editorApp.mount();
+	return editorApp;
+}
+
+async function toggleEditMode() {
+	const isEdit = document.body.dataset.mode === "edit";
+	if (isEdit) {
+		// Going back to view mode — render the last viewed payload if any
+		document.body.dataset.mode = "view";
+		if (lastPayload) renderFile(lastPayload, { preserveScroll: true });
+		return;
+	}
+	// Going into edit mode — open the current file as a tab if one is loaded
+	const app = ensureEditorApp();
+	document.body.dataset.mode = "edit";
+	if (lastPayload && lastPayload.path && !lastPayload.error) {
+		await app.openFile(lastPayload.path);
+	} else {
+		app.openUntitled("markdown");
+	}
+}
+
+// ============== M4.S6 Crash Report (opt-in, local-only) ==============
+async function saveCrashReport() {
+	try {
+		const result = await electroview.rpc!.request.saveCrashReport({});
+		if (result.ok && result.path) {
+			notify(`Crash report saved to ${result.path}`, "info");
+		} else if (result.error) {
+			notify(`Crash report failed: ${result.error}`, "error");
+		}
+	} catch (err) {
+		notify(`Crash report failed: ${String(err)}`, "error");
+	}
+}
+
+// ============== M4.S8 TOC export to clipboard ==============
+function copyOutlineToClipboard() {
+	const headings = Array.from(contentEl.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"));
+	if (headings.length === 0) {
+		notify("No headings to copy", "warn");
+		return;
+	}
+	const lines = headings.map((h) => {
+		const level = Number(h.tagName.substring(1));
+		const indent = "  ".repeat(level - 1);
+		const text = (h.textContent || "").trim().replace(/^#\s*$/, "");
+		return `${indent}- ${text}`;
+	});
+	const md = lines.join("\n") + "\n";
+	(navigator.clipboard?.writeText(md) ?? Promise.reject(new Error("clipboard API unavailable")))
+		.then(() => notify(`Copied outline (${headings.length} headings)`, "info"))
+		.catch((err) => notify(`Copy failed: ${String(err)}`, "error"));
+}
 
 // ============== Titlebar (custom window controls) ==============
 // macOS uses native traffic lights (titleBarStyle: "hiddenInset") so we hide
