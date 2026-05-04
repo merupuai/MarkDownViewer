@@ -710,6 +710,7 @@ body[data-theme="dark"] .welcome-cobolt-logo { filter: brightness(0) invert(1); 
 .dropzone {
 	position: absolute; inset: 0;
 	background: rgba(9, 105, 218, 0.12);
+	-webkit-backdrop-filter: blur(4px);
 	backdrop-filter: blur(4px);
 	border: 3px dashed var(--accent);
 	border-radius: 12px;
