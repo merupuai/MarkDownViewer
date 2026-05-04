@@ -1,51 +1,22 @@
-MIT License (Non-Resale Variant)
+MIT License
 
 Copyright (c) 2026 MFTLabs
-Developed by CoBolt
+Powered By CoBolt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to use,
-copy, modify, merge, publish, and distribute the Software for personal use,
-internal business use, educational use, and non-commercial open-source use,
-subject to the following conditions:
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-1. ATTRIBUTION
-   The above copyright notice ("Copyright (c) 2026 MFTLabs"), the developer
-   credit ("Developed by CoBolt"), and this permission notice shall be
-   included in all copies or substantial portions of the Software, and shall
-   remain visible in any user-facing distribution (e.g. About dialogs,
-   footers, splash screens, or documentation).
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-2. NO RESALE / NO PAID REDISTRIBUTION
-   The Software, in whole or in part, in original or modified form, may NOT
-   be sold, resold, sublicensed for a fee, rented, leased, or otherwise
-   distributed for monetary or non-monetary consideration without prior
-   written permission from MFTLabs. The following are expressly prohibited
-   without such permission:
-     a. Selling the Software as a paid product, paid download, or paid
-        subscription.
-     b. Bundling the Software inside a paid commercial product where the
-        Software constitutes a meaningful portion of the value delivered.
-     c. Charging a license, activation, support, or hosting fee whose
-        primary purpose is to monetize the Software itself.
-   Charging for genuinely separate professional services (such as
-   independent consulting, custom integration work, or unrelated hosting
-   infrastructure) where the Software is provided free of charge to the end
-   user is permitted.
-
-3. THIRD-PARTY COMPONENTS
-   This project bundles open-source components, each retaining its own
-   license. See README.md "Tech stack" section for the full list. Those
-   licenses govern their respective components and are NOT modified by this
-   license.
-
-4. WARRANTY DISCLAIMER
-   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
-   OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-   IN NO EVENT SHALL THE AUTHORS, DEVELOPER, OR COPYRIGHT HOLDER BE LIABLE
-   FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
-   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH
-   THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-For commercial resale licensing inquiries, contact MFTLabs.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
