@@ -1,0 +1,66 @@
+================================================================
+  IMPORTANT — Please read before installing
+================================================================
+
+  Markdown Viewer
+  Copyright (c) 2026 MFTLabs
+  Developed by CoBolt
+
+----------------------------------------------------------------
+  License at a glance — MIT (Non-Resale Variant)
+----------------------------------------------------------------
+
+  This software is provided FREE for:
+
+    * Personal use
+    * Internal business use
+    * Educational use
+    * Non-commercial open-source projects
+
+  You may freely copy, modify, and redistribute it.
+
+
+  However, the following are NOT permitted without prior
+  written permission from MFTLabs:
+
+    * Selling this software as a paid product
+    * Reselling or sublicensing it for a fee
+    * Renting or leasing it
+    * Bundling it inside a paid commercial product where this
+      software constitutes a meaningful portion of the value
+    * Charging a license, activation, or hosting fee whose
+      primary purpose is to monetize this software itself
+
+  Charging for genuinely separate professional services
+  (consulting, custom integration, unrelated hosting where the
+  software is provided free to the end user) is allowed.
+
+
+----------------------------------------------------------------
+  Attribution
+----------------------------------------------------------------
+
+  The copyright notice ("Copyright (c) 2026 MFTLabs") and the
+  developer credit ("Developed by CoBolt") must remain visible
+  in any user-facing distribution — About dialogs, footers,
+  splash screens, or documentation.
+
+
+----------------------------------------------------------------
+  Third-party components
+----------------------------------------------------------------
+
+  This installer bundles open-source libraries (Mermaid, KaTeX,
+  markdown-it, DOMPurify, highlight.js, and others). Each
+  retains its own license and is NOT modified by this license.
+
+
+================================================================
+
+  By clicking "Next" and accepting the license agreement on the
+  next screen, you acknowledge that you have read and agree to
+  these terms.
+
+  For commercial resale licensing inquiries, contact MFTLabs.
+
+================================================================

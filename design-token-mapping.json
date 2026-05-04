@@ -1,0 +1,120 @@
+{
+  "$schema": "cobolt://schemas/design-token-mapping.schema.json",
+  "purpose": "M2.S8 (closes DESIGN-001) — explicit mapping from each CSS custom property in src/mainview/index.css to its source-of-truth in design-tokens.json. The CSS was authored before design-tokens.json was introduced, so we don't force-rename CSS variables; instead we document the mapping and validate it via scripts/design-token-check.ts.",
+  "version": "1.0.0",
+  "generatedAt": "2026-05-04",
+  "cssRoot": "src/mainview/index.css",
+  "tokenFile": "design-tokens.json",
+  "mapping": {
+    "--accent": {
+      "tokenPath": "colors.primary",
+      "rationale": "App's accent color is the primary brand color for buttons, links, and active highlights"
+    },
+    "--accent-hover": {
+      "tokenPath": "colors.primary",
+      "transform": "darken 8%",
+      "rationale": "Hover state derived from primary"
+    },
+    "--accent-soft": {
+      "tokenPath": "colors.primary",
+      "transform": "alpha 0.15",
+      "rationale": "Background tint for selected items"
+    },
+    "--bg": {
+      "tokenPath": "colors.background",
+      "darkPath": "darkMode.background"
+    },
+    "--bg-elev": {
+      "tokenPath": "colors.card",
+      "darkPath": "darkMode.card",
+      "rationale": "Elevated surfaces (cards, modals)"
+    },
+    "--bg-sidebar": {
+      "tokenPath": "colors.card",
+      "darkPath": "darkMode.card",
+      "rationale": "Sidebar shares card background"
+    },
+    "--bg-code": {
+      "tokenPath": "colors.card",
+      "transform": "alpha 0.5",
+      "rationale": "Inline code background — softer than card"
+    },
+    "--bg-code-block": {
+      "tokenPath": "colors.card",
+      "darkPath": "darkMode.card",
+      "rationale": "Fenced code block background"
+    },
+    "--text": {
+      "tokenPath": "colors.foreground",
+      "darkPath": "darkMode.foreground"
+    },
+    "--text-muted": {
+      "tokenPath": "colors.muted",
+      "rationale": "Secondary text"
+    },
+    "--text-faint": {
+      "tokenPath": "colors.muted",
+      "transform": "alpha 0.6",
+      "rationale": "Tertiary text (placeholders, helper text)"
+    },
+    "--border": {
+      "tokenPath": "colors.border",
+      "darkPath": "darkMode.border"
+    },
+    "--border-soft": {
+      "tokenPath": "colors.border",
+      "transform": "alpha 0.5"
+    },
+    "--shadow": {
+      "tokenPath": "shadows.sm"
+    },
+    "--shadow-lg": {
+      "tokenPath": "shadows.lg"
+    },
+    "--font-sans": {
+      "tokenPath": "typography.body",
+      "fallback": "system-ui, sans-serif"
+    },
+    "--font-mono": {
+      "tokenPath": "typography.mono",
+      "fallback": "monospace"
+    },
+    "--alert-note": {
+      "tokenPath": "colors.primary",
+      "rationale": "GFM [!NOTE] alert color — primary"
+    },
+    "--alert-tip": {
+      "tokenPath": "colors.accent",
+      "rationale": "GFM [!TIP] alert color"
+    },
+    "--alert-important": {
+      "tokenPath": "colors.secondary",
+      "rationale": "GFM [!IMPORTANT] alert"
+    },
+    "--alert-warning": {
+      "tokenPath": "colors.accent",
+      "rationale": "GFM [!WARNING] alert (amber)"
+    },
+    "--alert-caution": {
+      "tokenPath": "colors.destructive",
+      "rationale": "GFM [!CAUTION] alert (red)"
+    },
+    "--mark-bg": {
+      "tokenPath": "colors.accent",
+      "transform": "alpha 0.3",
+      "rationale": "<mark> highlight background"
+    },
+    "--mark-bg-active": {
+      "tokenPath": "colors.accent",
+      "rationale": "Active find-in-doc match (no alpha)"
+    }
+  },
+  "layout": {
+    "comment": "Layout dimensions are NOT tokens; they're app-specific runtime values. Documented here so the validator does not flag them as missing.",
+    "appLocalVars": [
+      "--sidebar-w",
+      "--titlebar-h",
+      "--statusbar-h"
+    ]
+  }
+}

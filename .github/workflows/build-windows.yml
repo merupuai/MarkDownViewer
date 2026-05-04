@@ -37,6 +37,17 @@ jobs:
         run: bunx tsc --noEmit
         shell: pwsh
 
+      - name: Design-token alignment check
+        # M2.S8 (closes DESIGN-001): every CSS custom property in
+        # src/mainview/index.css MUST be mapped in design-token-mapping.json
+        # or listed as app-local. Drift fails the build.
+        run: bun run design:check
+        shell: pwsh
+
+      - name: Unit tests
+        run: bun test tests/unit/
+        shell: pwsh
+
       - name: Dependency vulnerability scan
         # M2.S2 (closes SCA-002 / MOD-009 / FR-11 / SR-07): runs on every PR
         # and tag. --audit-level=high → fail on any HIGH or CRITICAL CVE.

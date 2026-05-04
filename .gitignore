@@ -11,7 +11,13 @@ dist/
 
 # CoBolt / runtime instrumentation outputs (not part of the app)
 _cobolt-output/
+**/_cobolt-output/
+.cobolt-backups/
 .claude/
+
+# Local AI tool caches (per-machine, not project state)
+.codex/
+.stitch/
 
 # Logs
 *.log

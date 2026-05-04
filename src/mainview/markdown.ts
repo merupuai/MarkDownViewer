@@ -90,6 +90,9 @@ export function buildMarkdown(): MarkdownIt {
 	// Wikilinks: [[Page]] or [[Page|alias]]
 	registerWikilinksPlugin(md);
 
+	// M4.S10: Bibtex-style inline citations [@key] or [@key1; @key2]
+	registerCitationsPlugin(md);
+
 	// Mark external links
 	const defaultLinkOpen =
 		md.renderer.rules.link_open ||
@@ -220,6 +223,32 @@ function registerAlertsPlugin(md: MarkdownIt) {
 			}
 		}
 		return false;
+	});
+}
+
+// M4.S10: inline citation rule. Matches [@key] or [@key1; @key2] and emits
+// a <span class="citation" data-cite-keys="key1;key2">[?]</span> placeholder.
+// Resolution to author-year text and bibliography is done by the renderer
+// AFTER markdown parse — this keeps the markdown-it stage pure and lets the
+// renderer pull the .bib file via RPC just-in-time.
+function registerCitationsPlugin(md: MarkdownIt) {
+	md.inline.ruler.before("link", "citation", (state, silent) => {
+		const start = state.pos;
+		if (state.src.charCodeAt(start) !== 0x5b /* [ */) return false;
+		if (state.src.charCodeAt(start + 1) !== 0x40 /* @ */) return false;
+		const end = state.src.indexOf("]", start + 1);
+		if (end < 0) return false;
+		const inner = state.src.slice(start + 1, end);
+		// Verify EVERY token starts with @ (rejects `[@key not-a-cite]`)
+		const tokens = inner.split(";").map((s) => s.trim());
+		if (!tokens.every((t) => t.startsWith("@"))) return false;
+		const keys = tokens.map((t) => t.slice(1).trim()).filter(Boolean);
+		if (!keys.length) return false;
+		if (silent) return true;
+		const tok = state.push("html_inline", "", 0);
+		tok.content = `<span class="citation" data-cite-keys="${keys.map((k) => k.replace(/[<>"&]/g, "")).join(";")}">[?]</span>`;
+		state.pos = end + 1;
+		return true;
 	});
 }
 

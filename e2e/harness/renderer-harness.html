@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<!--
+  e2e/harness/renderer-harness.html
+  ─────────────────────────────────
+  A static fixture that loads the SAME CSP meta tag and DOMPurify config as
+  src/mainview/index.html, plus a tiny in-page mock of Electrobun's RPC layer.
+  Playwright tests load this harness via the local file:// protocol or via a
+  Playwright-managed static server, then drive the renderer through the
+  exposed window.__mdvHarness API to verify M1 mitigations under a real
+  browser CSP.
+
+  Shipped as a TEST FIXTURE only — never goes into the .app bundle.
+-->
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!-- Same CSP as src/mainview/index.html (M1.S1) -->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none';">
+	<title>MDV Test Harness</title>
+	<style>
+		body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+		#content { max-width: 720px; }
+		.fm-error { background: #fff8e1; border-left: 4px solid #ffa000; padding: 8px 12px; margin: 0 0 16px 0; }
+		.broken { outline: 2px dashed #d32f2f; }
+	</style>
+</head>
+<body>
+	<div id="content"></div>
+
+	<script>
+		// Capture every CSP violation report the browser emits.
+		window.__cspViolations = [];
+		document.addEventListener("securitypolicyviolation", (e) => {
+			window.__cspViolations.push({
+				blockedURI: e.blockedURI,
+				violatedDirective: e.violatedDirective,
+				sourceFile: e.sourceFile,
+				lineNumber: e.lineNumber,
+			});
+		});
+
+		// Capture every network request the page tries to make. The harness
+		// patches fetch / XMLHttpRequest so Playwright can assert egress is
+		// zero even if a hostile fixture would otherwise fly under the CSP
+		// radar (e.g., via image src or stylesheet @import).
+		window.__networkAttempts = [];
+		const _fetch = window.fetch;
+		window.fetch = (...args) => {
+			window.__networkAttempts.push({ kind: "fetch", url: String(args[0]) });
+			return _fetch.apply(window, args);
+		};
+		const _xhrOpen = XMLHttpRequest.prototype.open;
+		XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+			window.__networkAttempts.push({ kind: "xhr", method, url: String(url) });
+			return _xhrOpen.call(this, method, url, ...rest);
+		};
+
+		window.__mdvHarness = {
+			// Inject DOMPurify config that matches src/mainview/index.ts hooks
+			install: function (DOMPurify) {
+				const STYLE_FORBIDDEN = /(?:url\s*\(|@import|expression\s*\(|behavior\s*:|-moz-binding)/i;
+				DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+					if (data.attrName !== "style") return;
+					const value = String(data.attrValue || "");
+					if (STYLE_FORBIDDEN.test(value)) {
+						data.keepAttr = false;
+						data.attrValue = "";
+					}
+				});
+			},
+
+			// Render a markdown-derived HTML string through the same DOMPurify
+			// allowlist that src/mainview/index.ts uses, then push the result
+			// into #content via a parsed-once pattern (NEVER raw assignment).
+			renderMarkdown: function (rawHtml, DOMPurify) {
+				const safeBody = DOMPurify.sanitize(rawHtml, {
+					ADD_ATTR: ["class", "id", "style", "src", "alt", "title", "href", "target", "data-rel-src"],
+					ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br"],
+					FORBID_TAGS: ["script", "iframe", "object", "embed"],
+					ALLOW_DATA_ATTR: true,
+				});
+				const target = document.getElementById("content");
+				target.replaceChildren();
+				const tpl = document.createElement("template");
+				tpl.innerHTML = safeBody;
+				target.appendChild(tpl.content);
+				return { stripped: rawHtml.length - safeBody.length, safeBody };
+			},
+
+			// Diagnostic snapshot — read by Playwright via page.evaluate
+			snapshot: function () {
+				return {
+					cspViolations: window.__cspViolations.slice(),
+					networkAttempts: window.__networkAttempts.slice(),
+					contentHTML: document.getElementById("content").innerHTML,
+				};
+			},
+		};
+	</script>
+</body>
+</html>

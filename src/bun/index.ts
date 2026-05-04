@@ -568,6 +568,81 @@ const IMAGE_MIME: Record<string, string> = {
 	bmp: "image/bmp", ico: "image/x-icon", avif: "image/avif",
 };
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB sanity cap
+const ALLOWED_IMAGE_MIMES = new Set(Object.values(IMAGE_MIME));
+
+// External-image policy — the renderer keeps `connect-src 'none'` + `img-src 'self' data:`
+// (M1.S1 / SEC-007 / FR-06 / NFR-04). Bun is the privileged side: it fetches whitelisted
+// hosts and returns data: URLs that the strict CSP accepts. README badges / githubusercontent
+// images are the target. MDV_IMG_HOSTS env var overrides the sealed default for ops without
+// a code change. Empty string disables external images entirely.
+const DEFAULT_IMAGE_HOSTS = [
+	"img.shields.io",
+	"shields.io",
+	"raw.githubusercontent.com",
+	"user-images.githubusercontent.com",
+	"avatars.githubusercontent.com",
+	"github.com",
+	"gravatar.com",
+	"secure.gravatar.com",
+];
+function buildImageHostAllowlist(): Set<string> {
+	const env = Bun.env["MDV_IMG_HOSTS"];
+	if (env === undefined) return new Set(DEFAULT_IMAGE_HOSTS);
+	return new Set(env.split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean));
+}
+const IMAGE_HOST_ALLOWLIST = buildImageHostAllowlist();
+const EXTERNAL_FETCH_TIMEOUT_MS = 5000;
+const EXTERNAL_CACHE_MAX = 100;
+const externalImageCache = new Map<string, string>();
+function externalCachePut(url: string, dataUrl: string) {
+	externalImageCache.set(url, dataUrl);
+	if (externalImageCache.size > EXTERNAL_CACHE_MAX) {
+		const oldest = externalImageCache.keys().next().value;
+		if (oldest !== undefined) externalImageCache.delete(oldest);
+	}
+}
+
+// Pure host-allowlist + scheme check. The Electrobun bun entry is a side-effect-
+// only script — adding an `export` here would flip the file into an ES module
+// and change Electrobun's loader semantics (caused a native-side crash at
+// startup during M-fix-shieldsio). Keep this internal; the unit test mirrors
+// the logic in tests/unit/image-resolver.test.ts.
+function isExternalImageAllowed(rawUrl: string, allowlist: Set<string> = IMAGE_HOST_ALLOWLIST): { ok: true; host: string } | { ok: false; error: string } {
+	let parsed: URL;
+	try { parsed = new URL(rawUrl); } catch { return { ok: false, error: "external-bad-url" }; }
+	if (parsed.protocol !== "https:") return { ok: false, error: `external-not-https:${parsed.protocol}` };
+	const host = parsed.hostname.toLowerCase();
+	if (!allowlist.has(host)) return { ok: false, error: `external-host-blocked:${host}` };
+	return { ok: true, host };
+}
+
+async function fetchExternalImage(rawUrl: string): Promise<{ dataUrl: string } | { error: string }> {
+	const gate = isExternalImageAllowed(rawUrl);
+	if (!gate.ok) return { error: gate.error };
+	const cached = externalImageCache.get(rawUrl);
+	if (cached) return { dataUrl: cached };
+
+	const ctl = new AbortController();
+	const t = setTimeout(() => ctl.abort(), EXTERNAL_FETCH_TIMEOUT_MS);
+	try {
+		const res = await fetch(rawUrl, { signal: ctl.signal, redirect: "follow" });
+		if (!res.ok) return { error: `external-status:${res.status}` };
+		const ct = (res.headers.get("content-type") || "").split(";")[0]!.trim().toLowerCase();
+		if (!ALLOWED_IMAGE_MIMES.has(ct)) return { error: `external-bad-mime:${ct || "(none)"}` };
+		const cl = Number(res.headers.get("content-length") || 0);
+		if (cl && cl > MAX_IMAGE_BYTES) return { error: `external-too-large:${cl}` };
+		const buf = Buffer.from(await res.arrayBuffer());
+		if (buf.byteLength > MAX_IMAGE_BYTES) return { error: `external-too-large:${buf.byteLength}` };
+		const dataUrl = `data:${ct};base64,${buf.toString("base64")}`;
+		externalCachePut(rawUrl, dataUrl);
+		return { dataUrl };
+	} catch (err) {
+		if ((err as Error)?.name === "AbortError") return { error: "external-timeout" };
+		return { error: `external-fetch:${(err as Error)?.message || String(err)}` };
+	} finally {
+		clearTimeout(t);
+	}
+}
 
 function realCanonical(p: string): string {
 	try { return realpathSync(p); } catch { return resolve(p); }
@@ -607,9 +682,17 @@ function imageCachePut(resolved: string, mtimeMs: number, dataUrl: string) {
 	}
 }
 
-function resolveImage(docPath: string, src: string): { dataUrl: string } | { error: string } {
+async function resolveImage(docPath: string, src: string): Promise<{ dataUrl: string } | { error: string }> {
 	try {
-		if (/^(https?:|data:|file:)/.test(src)) return { error: "external" };
+		// External HTTPS — fetched server-side by bun, returned as data: URL so
+		// the renderer's strict img-src 'self' data: CSP accepts it. Allowlisted
+		// hosts only (see IMAGE_HOST_ALLOWLIST / MDV_IMG_HOSTS).
+		if (/^https:/i.test(src)) return await fetchExternalImage(src);
+		// http: never — renderer egress lock is preserved; we only relay HTTPS.
+		if (/^http:/i.test(src)) return { error: "external-not-https:http:" };
+		// data: is already inline; file: is an explicit absolute file URL we
+		// don't have a story for (out of scope for SR-02 containment).
+		if (/^(data:|file:)/i.test(src)) return { error: "external" };
 		const docDir = dirname(docPath);
 		const resolved = resolve(docDir, src);
 

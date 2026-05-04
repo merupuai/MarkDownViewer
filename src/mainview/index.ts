@@ -521,7 +521,10 @@ async function resolveImages(docPath: string) {
 	for (const img of imgs) {
 		const rawSrc = img.getAttribute("src") || "";
 		if (!rawSrc) { skipped++; continue; }
-		if (/^(https?:|data:|file:|views:|blob:)/i.test(rawSrc)) { skipped++; continue; }
+		// data:/file:/views:/blob: are already-resolved or non-fetchable; skip.
+		// http(s) is NOT skipped — bun's resolveImage handles HTTPS via the
+		// host allowlist and returns a data: URL the strict CSP accepts.
+		if (/^(data:|file:|views:|blob:)/i.test(rawSrc)) { skipped++; continue; }
 		try {
 			const result = await electroview.rpc!.request.resolveImage({ docPath, src: rawSrc });
 			if ("dataUrl" in result) {

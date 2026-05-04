@@ -18,7 +18,7 @@
 	<link rel="stylesheet" href="katex/katex.min.css">
 	<link rel="stylesheet" href="index.css">
 </head>
-<body class="theme-auto">
+<body class="theme-auto" data-mode="view">
 	<header class="titlebar" id="titlebar" data-platform="unknown" aria-label="Window titlebar">
 		<div class="titlebar-brand">
 			<img src="brand/MarkDownViewerLogo.svg" alt="" class="titlebar-icon" />
@@ -113,6 +113,9 @@
 				<div class="dropzone-msg">Drop a Markdown file to open</div>
 			</div>
 
+			<!-- M3 editor mode: tab bar above content; visible only when body[data-mode=edit]. -->
+			<div id="editor-tabs" class="editor-tab-bar" role="tablist" aria-label="Open documents"></div>
+
 			<div id="find-bar" class="find-bar" hidden>
 				<input id="find-input" class="find-input" placeholder="Find in document…" />
 				<span id="find-count" class="find-count"></span>
@@ -120,6 +123,9 @@
 				<button id="find-next" class="btn btn-icon btn-small" title="Next (↩)" aria-label="Next match">↓</button>
 				<button id="find-close" class="btn btn-icon btn-small" title="Close (Esc)" aria-label="Close find bar">✕</button>
 			</div>
+
+			<!-- M3: editor pane appears beside (or above) #content in edit mode. -->
+			<div id="editor-pane" class="editor-pane" aria-label="Document editor"></div>
 
 			<article id="content" class="markdown-body welcome">
 				<div class="welcome-card">
@@ -150,6 +156,17 @@
 			<button id="lightbox-close" class="btn btn-icon" aria-label="Close">✕</button>
 		</div>
 		<div id="lightbox-stage" class="lightbox-stage"></div>
+	</div>
+
+	<!-- M3 confirm modal — used by editor for unsaved-changes prompt and
+	     save-conflict resolution (IR-13-04, IR-13-03). Hidden by default;
+	     shown via the renderer's openConfirm() helper which returns a Promise. -->
+	<div id="confirm-modal" class="confirm-modal" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+		<div class="confirm-modal-card">
+			<div id="confirm-title" class="confirm-modal-title">Unsaved changes</div>
+			<div id="confirm-message" class="confirm-modal-message"></div>
+			<div id="confirm-buttons" class="confirm-modal-buttons"></div>
+		</div>
 	</div>
 
 	<div id="statusbar" class="statusbar">
