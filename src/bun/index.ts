@@ -8,8 +8,10 @@ import Electrobun from "electrobun/bun";
 import { watch, readdirSync, statSync, mkdirSync, existsSync, readFileSync, writeFileSync, appendFileSync, realpathSync, chmodSync, type FSWatcher } from "fs";
 import { fileURLToPath } from "url";
 import { basename, join, dirname, resolve, extname, sep as pathSep } from "path";
-import type { AppRPC, FilePayload, FolderPayload, TreeNode, RecentEntry, SearchResults, SearchHit } from "../shared/rpc";
+import type { AppRPC, FilePayload, FolderPayload, TreeNode, RecentEntry, SearchResults, SearchHit, Encoding, EOL } from "../shared/rpc";
 import { append as logAppend, logPath as resolvedLogPath } from "./log";
+// L1/L2 (Path B delta): encoding-aware read + write
+import { readText, writeText } from "./text-io";
 
 // Resolve the typed rpc object that BrowserView.defineRPC<AppRPC>(...) returns,
 // so mainWindow.webview.rpc.send.* is fully typed against AppRPC.webview.messages
@@ -195,11 +197,152 @@ async function readMarkdownFile(path: string): Promise<FilePayload> {
 		if (!(await file.exists())) {
 			return { path, content: "", error: `File not found: ${path}` };
 		}
-		const content = await file.text();
-		return { path, content };
+		// M3.S6: capture mtime FIRST (before any decode work) so retry/conflict
+		// logic stays consistent regardless of decode time.
+		let mtimeMs: number | undefined;
+		try { mtimeMs = statSync(path).mtimeMs; } catch {}
+		// L1 (Path B delta): encoding-aware read via text-io. Detects UTF-8 /
+		// UTF-16 LE/BE / Latin-1 with BOM stripping and EOL detection. Old
+		// callers that ignore encoding/eol/bom/binary still see the same
+		// content/mtimeMs they did before.
+		const r = await readText(path);
+		if (r.binary) {
+			return { path, content: "", error: "Binary file refused", binary: true, mtimeMs };
+		}
+		return {
+			path,
+			content: r.content,
+			encoding: r.encoding,
+			eol: r.eol,
+			bom: r.bom,
+			mtimeMs,
+		};
 	} catch (err) {
 		return { path, content: "", error: err instanceof Error ? err.message : String(err) };
 	}
+}
+
+// M3.S2 + M3.S6 (closes FR-13 / IR-13-02 / IR-13-03): atomic save with
+// optimistic-concurrency conflict detection.
+//
+// Algorithm:
+//   1. Reject paths that escape sane bounds: no NUL, length cap, must be absolute.
+//   2. If expectedMtimeMs supplied AND the file currently exists, compare disk
+//      mtime to caller's expectation. If they differ → return {error:"conflict"}
+//      with both mtimes so the renderer can show "Save anyway / Reload from
+//      disk".
+//   3. Write content to a temp file in the SAME directory (so rename is atomic
+//      on most filesystems). Tmp filename embeds pid + random for uniqueness.
+//   4. Rename tmp → target. On POSIX this is atomic; on Windows rename across
+//      handles may need a retry loop, which we wrap.
+//   5. Return {ok:true, savedAt, mtimeMs (post-write), bytes}.
+const MAX_SAVE_BYTES = 50 * 1024 * 1024; // 50 MB sanity cap
+
+async function saveDocumentFile(path: string, content: string, expectedMtimeMs?: number) {
+	// Path validation
+	if (!path || typeof path !== "string" || path.length > 4096 || path.includes("\0")) {
+		return { ok: false, error: "unsafe-path", message: "path empty / too long / contains NUL" } as const;
+	}
+	const buf = Buffer.from(content, "utf8");
+	if (buf.length > MAX_SAVE_BYTES) {
+		return { ok: false, error: "too-large", bytes: buf.length } as const;
+	}
+
+	// Conflict detection
+	if (expectedMtimeMs !== undefined && existsSync(path)) {
+		try {
+			const diskMtimeMs = statSync(path).mtimeMs;
+			// Allow a 1ms slack (some filesystems quantize mtime). Reject if
+			// the disk has moved meaningfully ahead of what the renderer saw.
+			if (Math.abs(diskMtimeMs - expectedMtimeMs) > 1) {
+				return {
+					ok: false,
+					error: "conflict",
+					diskMtimeMs,
+					expectedMtimeMs,
+				} as const;
+			}
+		} catch (err) {
+			return { ok: false, error: "io-failure", message: `stat failed: ${String(err)}` } as const;
+		}
+	}
+
+	// Atomic write: tmp + rename
+	const dir = dirname(path);
+	const base = basename(path);
+	const tmpPath = join(dir, `.${base}.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`);
+	try {
+		writeFileSync(tmpPath, buf);
+		// Best-effort: preserve mode (0644 on POSIX) so saved files don't
+		// suddenly become world-writable.
+		if (process.platform !== "win32") {
+			try { chmodSync(tmpPath, 0o644); } catch {}
+		}
+		// Rename — atomic on POSIX; Windows may briefly fail if the target is
+		// open in another handle, so retry up to 3 times with small backoff.
+		let renamed = false;
+		let lastErr: unknown = null;
+		for (let attempt = 0; attempt < 3 && !renamed; attempt++) {
+			try {
+				const fs = require("fs") as typeof import("fs");
+				fs.renameSync(tmpPath, path);
+				renamed = true;
+			} catch (err) {
+				lastErr = err;
+				// Tiny backoff before retry — 50ms × attempt
+				const until = Date.now() + 50 * (attempt + 1);
+				while (Date.now() < until) { /* spin briefly */ }
+			}
+		}
+		if (!renamed) {
+			// Cleanup tmp; surface the error
+			try { (require("fs") as typeof import("fs")).unlinkSync(tmpPath); } catch {}
+			return {
+				ok: false,
+				error: "io-failure",
+				message: `rename failed after retry: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+			} as const;
+		}
+		const finalMtime = statSync(path).mtimeMs;
+		return {
+			ok: true,
+			savedAt: Date.now(),
+			mtimeMs: finalMtime,
+			bytes: buf.length,
+		} as const;
+	} catch (err) {
+		// Cleanup tmp if it exists
+		try { (require("fs") as typeof import("fs")).unlinkSync(tmpPath); } catch {}
+		return {
+			ok: false,
+			error: "io-failure",
+			message: err instanceof Error ? err.message : String(err),
+		} as const;
+	}
+}
+
+// M3.S7 (closes FR-13 format detection): inspect extension + first 1 KB of
+// the file and return {format, confidence}.
+function detectDocumentFormat(path: string): { format: string; confidence: number } {
+	const ext = extname(path).toLowerCase().slice(1);
+	if (MD_EXT_RE.test(`.${ext}`)) return { format: "markdown", confidence: 1 };
+	if (ext === "json") return { format: "json", confidence: 1 };
+	if (ext === "yaml" || ext === "yml") return { format: "yaml", confidence: 1 };
+	if (ext === "toml") return { format: "toml", confidence: 1 };
+	if (ext === "txt") return { format: "plain-text", confidence: 1 };
+	// Sniff: read first 1 KB and look for telltales
+	try {
+		const head = readFileSync(path, { encoding: "utf8", flag: "r" }).slice(0, 1024);
+		// JSON object/array start
+		if (/^\s*[{\[]/.test(head)) return { format: "json", confidence: 0.7 };
+		// YAML doc separator or key:value at start of line
+		if (/^---\s*\n/.test(head) || /^\s*[a-zA-Z][\w-]*\s*:\s*\S/m.test(head)) {
+			return { format: "yaml", confidence: 0.6 };
+		}
+		// Markdown heading
+		if (/^#{1,6}\s+\S/m.test(head)) return { format: "markdown", confidence: 0.65 };
+	} catch { /* fall through */ }
+	return { format: "plain-text", confidence: 0.5 };
 }
 
 function watchFile(path: string) {
@@ -326,10 +469,11 @@ function searchInFolder(root: string, query: string, caseSensitive: boolean, who
 						length: m[0].length,
 						preview: lines[i].length > 200 ? lines[i].slice(0, 200) + "…" : lines[i],
 					});
-					if (hits.length === 0 && matches.length === 1) matched++;
+					// M4.S3 (DEBT-008): the in-walk `matched` increments were
+					// dead — the value is overwritten by `matched = hits.length`
+					// after walk returns. Removed.
 				}
 				if (matches.length > 0) {
-					if (hits.length === 0) {} else matched++;
 					hits.push({ path: full, name, matches });
 					const total = hits.reduce((a, h) => a + h.matches.length, 0);
 					if (total >= MAX_SEARCH_TOTAL_HITS) { truncated = true; break; }
@@ -337,7 +481,6 @@ function searchInFolder(root: string, query: string, caseSensitive: boolean, who
 			}
 		}
 	}
-	matched = 0;
 	walk(root, 0);
 	matched = hits.length;
 	return { query, hits, truncated, scanned, matched };
@@ -399,6 +542,33 @@ function isContainedIn(candidate: string, baseDir: string): boolean {
 	return normalizedCand === normalizedBase || normalizedCand.startsWith(baseWithSep);
 }
 
+// M4.S9 (closes ENH-024): LRU image cache keyed by (resolved-path, mtime).
+// Re-render of the same document (theme toggle, file watcher debounced
+// ping) walks every <img> and calls resolveImage. Without a cache, each
+// image is re-read from disk every time. The cache key includes mtime so
+// stale entries auto-invalidate on disk change.
+const IMAGE_CACHE_MAX = 100;
+const imageCache = new Map<string, { dataUrl: string; mtimeMs: number }>();
+function imageCacheGet(resolved: string, mtimeMs: number): string | null {
+	const hit = imageCache.get(resolved);
+	if (!hit) return null;
+	if (hit.mtimeMs !== mtimeMs) {
+		imageCache.delete(resolved);
+		return null;
+	}
+	// Refresh insertion order (LRU on read)
+	imageCache.delete(resolved);
+	imageCache.set(resolved, hit);
+	return hit.dataUrl;
+}
+function imageCachePut(resolved: string, mtimeMs: number, dataUrl: string) {
+	imageCache.set(resolved, { dataUrl, mtimeMs });
+	if (imageCache.size > IMAGE_CACHE_MAX) {
+		const oldest = imageCache.keys().next().value;
+		if (oldest !== undefined) imageCache.delete(oldest);
+	}
+}
+
 function resolveImage(docPath: string, src: string): { dataUrl: string } | { error: string } {
 	try {
 		if (/^(https?:|data:|file:)/.test(src)) return { error: "external" };
@@ -424,8 +594,14 @@ function resolveImage(docPath: string, src: string): { dataUrl: string } | { err
 		if (!stat.isFile()) return { error: `not-a-file:${resolved}` };
 		if (stat.size > MAX_IMAGE_BYTES) return { error: `too-large:${stat.size}` };
 
+		// M4.S9: LRU cache — return cached data URL if mtime hasn't moved.
+		const cached = imageCacheGet(resolved, stat.mtimeMs);
+		if (cached) return { dataUrl: cached };
+
 		const buf = readFileSync(resolved);
-		return { dataUrl: `data:${mt};base64,${buf.toString("base64")}` };
+		const dataUrl = `data:${mt};base64,${buf.toString("base64")}`;
+		imageCachePut(resolved, stat.mtimeMs, dataUrl);
+		return { dataUrl };
 	} catch (err) {
 		return { error: err instanceof Error ? err.message : String(err) };
 	}
@@ -483,13 +659,131 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 				watchFolder(chosen);
 				return payload;
 			},
-			readFile: async ({ path }) => {
+			readFile: async ({ path, intent }) => {
 				const real = urlToPath(path);
 				const payload = await readMarkdownFile(real);
 				if (!payload.error) pushRecent(real);
 				if (mainWindow && !payload.error) mainWindow.setTitle(basename(real));
+				// M3.S1: edit intent doesn't change read behavior today, but we
+				// still register the file watcher so the renderer is notified
+				// of external changes (used by IR-13-03 conflict prompt).
 				watchFile(real);
+				if (intent === "edit") {
+					dbg("[mv] readFile intent=edit", real, "mtimeMs=", payload.mtimeMs);
+				}
 				return payload;
+			},
+			// M3.S2 + M3.S6: atomic save with optimistic concurrency check.
+			saveFile: async ({ path, content, expectedMtimeMs }) => {
+				const real = urlToPath(path);
+				const result = await saveDocumentFile(real, content, expectedMtimeMs);
+				if (result.ok) {
+					pushRecent(real);
+					dbg("[mv] saveFile OK", real, "bytes=", result.bytes);
+				} else {
+					dbg("[mv] saveFile FAIL", real, "error=", result.error);
+				}
+				return result;
+			},
+			// M3.S7: format detection (extension + content sniff)
+			detectFormat: async ({ path }) => detectDocumentFormat(urlToPath(path)),
+			// M4.S10 (closes ENH-022): expose references.bib next to the
+			// document (or in the open folder root) for the renderer's bibtex
+			// plugin. Path containment applies — bib file must be inside the
+			// same allowedRoots as resolveImage, so a hostile [@cite] cannot
+			// pull a bib file from outside the user's open scope.
+			readBibFile: async ({ docPath }) => {
+				try {
+					const real = urlToPath(docPath);
+					const docDir = dirname(real);
+					const candidates = [join(docDir, "references.bib")];
+					if (currentFolderRoot && currentFolderRoot !== docDir) {
+						candidates.push(join(currentFolderRoot, "references.bib"));
+					}
+					for (const cand of candidates) {
+						const allowedRoots = currentFolderRoot ? [docDir, currentFolderRoot] : [docDir];
+						if (!allowedRoots.some((root) => isContainedIn(cand, root))) continue;
+						if (!existsSync(cand)) continue;
+						const stat = statSync(cand);
+						if (!stat.isFile()) continue;
+						if (stat.size > 5 * 1024 * 1024) continue;  // 5 MB cap
+						return { content: readFileSync(cand, "utf8"), path: cand };
+					}
+					return { content: null };
+				} catch (err) {
+					return { content: null };
+				}
+			},
+			// M4.S7 (closes ENH-023): expose the user's optional mermaid theme
+			// override file at <userDataDir>/mermaid-theme.json. Renderer
+			// calls this on configureMermaid, merges the override into its
+			// initialize config. JSON is parsed in the bun process so any
+			// syntax error surfaces here (renderer continues with defaults).
+			getMermaidThemeOverride: async () => {
+				try {
+					const dir = (Utils as any).paths?.userData || join(PLATFORM_HOME, `.${APP_NAME}`);
+					const path = join(dir, "mermaid-theme.json");
+					if (!existsSync(path)) return { override: null };
+					const raw = readFileSync(path, "utf8");
+					const data = JSON.parse(raw);
+					if (typeof data !== "object" || data === null || Array.isArray(data)) {
+						return { override: null, error: "mermaid-theme.json must be a JSON object at top level" };
+					}
+					return { override: data as Record<string, unknown> };
+				} catch (err) {
+					return { override: null, error: err instanceof Error ? err.message : String(err) };
+				}
+			},
+			// M4.S6 (closes ENH-019): user-initiated crash report. Copies the
+			// bun debug log + system info to a user-chosen folder. Privacy-by-
+			// default — no automatic upload, no telemetry. Pure local copy.
+			saveCrashReport: async () => {
+				try {
+					const folder = await Utils.openFileDialog({
+						startingFolder: PLATFORM_HOME,
+						canChooseFiles: false,
+						canChooseDirectory: true,
+						allowsMultipleSelection: false,
+					});
+					const dir = folder?.[0];
+					if (!dir) return { ok: false };
+					const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+					const targetDir = join(dir, `mdv-crash-${stamp}`);
+					mkdirSync(targetDir, { recursive: true });
+					// 1) copy primary log
+					const logSrc = resolvedLogPath();
+					if (existsSync(logSrc)) {
+						try { writeFileSync(join(targetDir, "mdv-bun.log"), readFileSync(logSrc)); } catch (err) { dbg("[crash-report] log copy failed:", String(err)); }
+					}
+					// 2) copy rotated log if present
+					if (existsSync(logSrc + ".1")) {
+						try { writeFileSync(join(targetDir, "mdv-bun.log.1"), readFileSync(logSrc + ".1")); } catch {}
+					}
+					// 3) write system info
+					const sysInfo = {
+						app: { name: APP_NAME, eulaVersion: EULA_VERSION },
+						process: { platform: process.platform, arch: process.arch, pid: process.pid, ppid: process.ppid, versions: process.versions },
+						bun: { version: typeof Bun !== "undefined" ? Bun.version : "n/a" },
+						savedAt: new Date().toISOString(),
+					};
+					writeFileSync(join(targetDir, "system-info.json"), JSON.stringify(sysInfo, null, 2));
+					// 4) write a README explaining the privacy model
+					writeFileSync(join(targetDir, "README.txt"), [
+						"Markdown Viewer crash report",
+						"",
+						"This folder was created by File → Save Crash Report and contains:",
+						"  - mdv-bun.log         — application log (paths, timestamps, error messages; no file content)",
+						"  - mdv-bun.log.1       — rotated log if present",
+						"  - system-info.json    — platform / process / Bun version metadata",
+						"",
+						"Markdown Viewer NEVER uploads this anywhere. It is yours to share — or not.",
+						"If you're sending it for support, review mdv-bun.log first to confirm you're",
+						"comfortable with the paths it contains.",
+					].join("\n"));
+					return { ok: true, path: targetDir };
+				} catch (err) {
+					return { ok: false, error: err instanceof Error ? err.message : String(err) };
+				}
 			},
 			resolveImage: async ({ docPath, src }) => resolveImage(docPath, src),
 			getInitialFile: async () => {
@@ -683,10 +977,22 @@ ApplicationMenu.setApplicationMenu([
 			{ label: "Open File…", action: "open-file", accelerator: "cmd+o" },
 			{ label: "Open Folder…", action: "open-folder", accelerator: "cmd+shift+o" },
 			{ type: "separator" },
+			// M3 integration: edit-mode menu items
+			{ label: "Toggle Edit Mode", action: "toggle-edit-mode", accelerator: "cmd+shift+e" },
+			{ label: "Save", action: "save", accelerator: "cmd+s" },
+			{ label: "Save As…", action: "save-as", accelerator: "cmd+shift+s" },
+			{ label: "Close Tab", action: "close-tab", accelerator: "cmd+w" },
+			{ type: "separator" },
 			{ label: "Reveal in Finder", action: "reveal-in-finder", accelerator: "cmd+shift+r" },
 			{ type: "separator" },
 			{ label: "Print…", action: "print", accelerator: "cmd+p" },
 			{ label: "Export to HTML…", action: "export-html" },
+			// M4.S4 (closes ENH-006): PDF export uses the print dialog targeting
+			// "Save as PDF" (mac), Microsoft Print to PDF (win), or any
+			// CUPS-PDF / system PDF printer (linux). Cross-platform with no new
+			// runtime dependency. The print stylesheet (already present) hides
+			// the sidebar and statusbar so the output is just the document.
+			{ label: "Export to PDF…", action: "export-pdf" },
 			{ type: "separator" },
 			{ role: "close" },
 		],
@@ -734,6 +1040,12 @@ ApplicationMenu.setApplicationMenu([
 		label: "Help",
 		submenu: [
 			{ label: "License…", action: "show-license" },
+			{ type: "separator" },
+			// M4.S6: opt-in crash report — purely local file copy, no upload.
+			{ label: "Save Crash Report…", action: "save-crash-report" },
+			// M4.S8 wired here: "Copy Outline" menu item invokes the renderer's
+			// TOC-to-clipboard helper.
+			{ label: "Copy Outline", action: "copy-outline" },
 		],
 	},
 ]);
