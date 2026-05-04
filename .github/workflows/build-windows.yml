@@ -1,0 +1,162 @@
+name: Build Windows .exe
+
+# Runs on:
+#   - Push to main (uploads artifact, no release)
+#   - Tag v*  (uploads artifact AND attaches to the GitHub release)
+#   - Manual dispatch from the Actions tab
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to attach files to a release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ">=1.3.0"
+
+      - name: Install dependencies (frozen lockfile)
+        # M2.S1 (closes DEBT-003): frozen-lockfile guarantees CI installs the
+        # exact resolution committed in bun.lock. Any drift fails the build.
+        run: bun install --frozen-lockfile
+        shell: pwsh
+
+      - name: Type check
+        run: bunx tsc --noEmit
+        shell: pwsh
+
+      - name: Design-token alignment check
+        # M2.S8 (closes DESIGN-001): every CSS custom property in
+        # src/mainview/index.css MUST be mapped in design-token-mapping.json
+        # or listed as app-local. Drift fails the build.
+        run: bun run design:check
+        shell: pwsh
+
+      - name: Unit tests
+        run: bun test tests/unit/
+        shell: pwsh
+
+      - name: Dependency vulnerability scan
+        # M2.S2 (closes SCA-002 / MOD-009 / FR-11 / SR-07): runs on every PR
+        # and tag. --audit-level=high → fail on any HIGH or CRITICAL CVE.
+        run: bun audit --audit-level=high
+        shell: pwsh
+
+      - name: Build (stable, win-x64)
+        run: bun x electrobun build --env=stable
+        shell: pwsh
+
+      - name: Verify build output
+        shell: pwsh
+        run: |
+          $dir = "build\stable-win-x64"
+          if (-not (Test-Path $dir)) { throw "Build output missing: $dir" }
+          Get-ChildItem $dir -Recurse | Select-Object FullName, Length | Format-Table
+
+      # ---------- Inno Setup installer (optional, fast) ----------
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          # Inno Setup ships pre-installed on windows-latest in some images;
+          # if not, install via Chocolatey.
+          if (-not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --no-progress -y
+          }
+
+      # ────────────────────────────────────────────────────────────────────
+      # M2.S5 (FR-09 win, SR-08): Authenticode-sign the bundled .exe BEFORE
+      # the installer is built, then re-sign the installer itself. Tagged
+      # release builds only.
+      #
+      # Required GitHub Actions secrets (USER must configure):
+      #   WIN_AUTHENTICODE_CERT      — base64-encoded .pfx
+      #   WIN_AUTHENTICODE_PASSWORD  — password for that .pfx
+      # OR (for cloud signing):
+      #   AZURE_KEY_VAULT_URL        — for AzureSignTool
+      #   AZURE_CLIENT_ID
+      #   AZURE_CLIENT_SECRET
+      #   AZURE_TENANT_ID
+      #   AZURE_KEY_VAULT_CERT_NAME
+      #
+      # The block below uses local .pfx (signtool); switch to AzureSignTool
+      # when keys live in Key Vault.
+      # ────────────────────────────────────────────────────────────────────
+      - name: Sign bundled .exe
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          WIN_AUTHENTICODE_CERT: ${{ secrets.WIN_AUTHENTICODE_CERT }}
+          WIN_AUTHENTICODE_PASSWORD: ${{ secrets.WIN_AUTHENTICODE_PASSWORD }}
+        run: |
+          if (-not $env:WIN_AUTHENTICODE_CERT) {
+            Write-Warning "WIN_AUTHENTICODE_CERT not configured — skipping signing. Configure repo secrets to enable."
+            exit 0
+          }
+          $certPath = "$env:RUNNER_TEMP\cert.pfx"
+          [System.IO.File]::WriteAllBytes($certPath, [System.Convert]::FromBase64String($env:WIN_AUTHENTICODE_CERT))
+          $signtool = "C:\Program Files (x86)\Windows Kits\10\bin\10.0.22621.0\x64\signtool.exe"
+          if (-not (Test-Path $signtool)) {
+            $signtool = (Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          }
+          # Sign every .exe / .dll under the build dir (Electrobun ships
+          # multiple — bun.exe, launcher.exe, NativeWrapper.dll, etc.)
+          Get-ChildItem build\stable-win-x64 -Recurse -Include *.exe,*.dll | ForEach-Object {
+            & $signtool sign /f $certPath /p $env:WIN_AUTHENTICODE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 $_.FullName
+            if (-not $?) { throw "signtool failed on $($_.FullName)" }
+          }
+
+      - name: Compile MarkdownViewerSetup.exe
+        shell: pwsh
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\MarkdownViewerSetup.iss
+          if (-not $?) { throw "ISCC.exe failed" }
+          Get-ChildItem build\windows-installer | Format-Table
+
+      - name: Sign installer
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          WIN_AUTHENTICODE_CERT: ${{ secrets.WIN_AUTHENTICODE_CERT }}
+          WIN_AUTHENTICODE_PASSWORD: ${{ secrets.WIN_AUTHENTICODE_PASSWORD }}
+        run: |
+          if (-not $env:WIN_AUTHENTICODE_CERT) { exit 0 }
+          $certPath = "$env:RUNNER_TEMP\cert.pfx"
+          $signtool = (Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\bin' -Recurse -Filter signtool.exe -ErrorAction SilentlyContinue | Select-Object -First 1).FullName
+          & $signtool sign /f $certPath /p $env:WIN_AUTHENTICODE_PASSWORD /tr http://timestamp.digicert.com /td sha256 /fd sha256 build\windows-installer\MarkdownViewerSetup.exe
+          if (-not $?) { throw "installer signing failed" }
+
+      # ---------- Upload artifacts ----------
+      - name: Upload raw build (zip of build/stable-win-x64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-viewer-win-x64
+          path: build/stable-win-x64/**
+          if-no-files-found: error
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: MarkdownViewerSetup-exe
+          path: build/windows-installer/MarkdownViewerSetup.exe
+          if-no-files-found: error
+
+      # ---------- Attach to GitHub Release on tag ----------
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/windows-installer/MarkdownViewerSetup.exe
+          generate_release_notes: true

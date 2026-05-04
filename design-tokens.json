@@ -1,0 +1,84 @@
+{
+  "$schema": "cobolt://schemas/design-tokens.schema.json",
+  "brand": {
+    "name": "MarkDownViewer",
+    "tagline": "",
+    "logo": ""
+  },
+  "colors": {
+    "primary": "#2563EB",
+    "primary-foreground": "#FFFFFF",
+    "secondary": "#1E293B",
+    "secondary-foreground": "#F8FAFC",
+    "accent": "#F59E0B",
+    "accent-foreground": "#FFFFFF",
+    "destructive": "#EF4444",
+    "muted": "#64748B",
+    "background": "#FFFFFF",
+    "foreground": "#0F172A",
+    "card": "#FFFFFF",
+    "border": "#E2E8F0"
+  },
+  "darkMode": {
+    "background": "#0F172A",
+    "foreground": "#F8FAFC",
+    "card": "#1E293B",
+    "border": "#334155"
+  },
+  "typography": {
+    "display": "Plus Jakarta Sans",
+    "body": "Inter",
+    "mono": "JetBrains Mono",
+    "scale": {
+      "xs": "0.75rem",
+      "sm": "0.875rem",
+      "base": "1rem",
+      "lg": "1.125rem",
+      "xl": "1.25rem",
+      "2xl": "1.5rem",
+      "3xl": "1.875rem",
+      "4xl": "2.25rem"
+    }
+  },
+  "spacing": {
+    "unit": 4,
+    "scale": {
+      "xs": "4px",
+      "sm": "8px",
+      "md": "16px",
+      "lg": "24px",
+      "xl": "32px",
+      "2xl": "48px",
+      "3xl": "64px"
+    }
+  },
+  "radius": {
+    "sm": "4px",
+    "md": "8px",
+    "lg": "12px",
+    "xl": "16px",
+    "full": "9999px"
+  },
+  "shadows": {
+    "sm": "0 1px 3px rgba(0,0,0,0.08)",
+    "md": "0 4px 16px rgba(0,0,0,0.08)",
+    "lg": "0 12px 40px rgba(0,0,0,0.12)"
+  },
+  "motion": {
+    "intensity": 6,
+    "easing": "cubic-bezier(0.34, 1.56, 0.64, 1)",
+    "duration": {
+      "fast": "150ms",
+      "base": "250ms",
+      "slow": "400ms"
+    }
+  },
+  "preferences": {
+    "darkModeDefault": false,
+    "mobileFirst": true,
+    "uiLibrary": "shadcn-ui",
+    "designVariance": 5,
+    "visualDensity": 5,
+    "allowRawColors": false
+  }
+}
