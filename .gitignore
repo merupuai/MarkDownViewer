@@ -57,3 +57,11 @@ build/tools/
 # CoBolt user infrastructure config (contains secrets)
 .env.cobolt
 .env.mcp
+
+# Project-local exclusions (per request)
+_cobolt-docker/
+.github/workflows/
+.gitignore
+design-tokens.json
+tests/unit/
+AGENTS.md
