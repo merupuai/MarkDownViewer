@@ -237,6 +237,21 @@ describe("readText — encoding & EOL detection", () => {
 		const r = await readText("tests/text-io.fixtures/binary.bin");
 		expect(r.binary).toBe(true);
 	});
+
+	// Regression guard for F1 — UTF-16 fixtures contain NUL bytes that the
+	// binary detector would otherwise flag. Encoding detection MUST run
+	// before binary detection; this test fails loudly if someone reorders.
+	test("UTF-16 LE is NOT misclassified as binary", async () => {
+		const r = await readText("tests/text-io.fixtures/utf16le-bom-crlf.txt");
+		expect(r.binary).toBeUndefined();
+		expect(r.encoding).toBe("utf-16le");
+	});
+
+	test("UTF-16 BE is NOT misclassified as binary", async () => {
+		const r = await readText("tests/text-io.fixtures/utf16be-bom-lf.txt");
+		expect(r.binary).toBeUndefined();
+		expect(r.encoding).toBe("utf-16be");
+	});
 });
 ```
 
@@ -322,10 +337,15 @@ function decode(buf: Buffer, encoding: Encoding, bomLen: number): string {
 
 export async function readText(path: string): Promise<ReadResult> {
 	const buf = readFileSync(path);
-	if (isBinary(buf)) {
+	// IMPORTANT: detect encoding FIRST. UTF-16 LE/BE files contain NUL bytes
+	// in normal ASCII text (e.g. "hi" → 0x68 0x00 0x69 0x00) and would be
+	// misclassified as binary if isBinary() ran first. We also strip the BOM
+	// before NUL scanning so a file that *just* starts with a UTF-16-style BOM
+	// but is otherwise valid text reads cleanly.
+	const { encoding, bom, bomLen } = detectEncoding(buf);
+	if (encoding !== "utf-16le" && encoding !== "utf-16be" && isBinary(buf.subarray(bomLen))) {
 		return { content: "", encoding: "utf-8", eol: "lf", bom: false, binary: true };
 	}
-	const { encoding, bom, bomLen } = detectEncoding(buf);
 	const content = decode(buf, encoding, bomLen);
 	const eol = detectEOL(content);
 	return { content, encoding, eol, bom };
@@ -335,7 +355,7 @@ export async function readText(path: string): Promise<ReadResult> {
 - [ ] **Step 5: Run tests — expect pass**
 
 Run: `bun test tests/text-io.test.ts`
-Expected: 6 pass, 0 fail.
+Expected: 8 pass, 0 fail (6 base cases + 2 F1 regression guards for UTF-16 not-misclassified-as-binary).
 
 - [ ] **Step 6: Commit**
 
@@ -368,7 +388,8 @@ describe("writeText — round-trip preservation", () => {
 
 	test("UTF-8 LF round-trip", async () => {
 		const p = join(tmpDir, "u8lf.txt");
-		await writeText(p, "abc\ndef\n", { encoding: "utf-8", eol: "lf", bom: false });
+		const r = await writeText(p, "abc\ndef\n", { encoding: "utf-8", eol: "lf", bom: false });
+		expect(r.ok).toBe(true);
 		const buf = readFileSync(p);
 		expect(buf[0]).not.toBe(0xEF);
 		expect(buf.toString("utf8")).toBe("abc\ndef\n");
@@ -377,7 +398,8 @@ describe("writeText — round-trip preservation", () => {
 
 	test("UTF-8 BOM CRLF round-trip", async () => {
 		const p = join(tmpDir, "u8bomcrlf.txt");
-		await writeText(p, "abc\r\ndef\r\n", { encoding: "utf-8", eol: "crlf", bom: true });
+		const r = await writeText(p, "abc\r\ndef\r\n", { encoding: "utf-8", eol: "crlf", bom: true });
+		expect(r.ok).toBe(true);
 		const buf = readFileSync(p);
 		expect(buf[0]).toBe(0xEF);
 		expect(buf[1]).toBe(0xBB);
@@ -388,7 +410,8 @@ describe("writeText — round-trip preservation", () => {
 
 	test("UTF-16 LE BOM round-trip", async () => {
 		const p = join(tmpDir, "u16le.txt");
-		await writeText(p, "hi\n", { encoding: "utf-16le", eol: "lf", bom: true });
+		const r0 = await writeText(p, "hi\n", { encoding: "utf-16le", eol: "lf", bom: true });
+		expect(r0.ok).toBe(true);
 		const r = await readText(p);
 		expect(r.encoding).toBe("utf-16le");
 		expect(r.bom).toBe(true);
@@ -398,7 +421,8 @@ describe("writeText — round-trip preservation", () => {
 
 	test("LF content gets CRLF on write when eol='crlf'", async () => {
 		const p = join(tmpDir, "eol-convert.txt");
-		await writeText(p, "a\nb\n", { encoding: "utf-8", eol: "crlf", bom: false });
+		const r = await writeText(p, "a\nb\n", { encoding: "utf-8", eol: "crlf", bom: false });
+		expect(r.ok).toBe(true);
 		const text = readFileSync(p, "utf8");
 		expect(text).toBe("a\r\nb\r\n");
 		unlinkSync(p);
@@ -406,9 +430,37 @@ describe("writeText — round-trip preservation", () => {
 
 	test("CRLF content stays CRLF when eol='crlf'", async () => {
 		const p = join(tmpDir, "eol-keep.txt");
-		await writeText(p, "a\r\nb\r\n", { encoding: "utf-8", eol: "crlf", bom: false });
+		const r = await writeText(p, "a\r\nb\r\n", { encoding: "utf-8", eol: "crlf", bom: false });
+		expect(r.ok).toBe(true);
 		const text = readFileSync(p, "utf8");
 		expect(text).toBe("a\r\nb\r\n");
+		unlinkSync(p);
+	});
+
+	// F2 — Latin-1 lossy save returns diagnostic info instead of corrupting silently
+	test("Latin-1 save with non-Latin-1 chars returns lossy info; allowLossy bypass works", async () => {
+		const p = join(tmpDir, "lossy.txt");
+		// Em-dash (U+2014) is unrepresentable in Latin-1
+		const refused = await writeText(p, "hello — world", { encoding: "latin-1", eol: "lf", bom: false });
+		expect(refused.ok).toBe(false);
+		if (refused.ok === false) {
+			expect(refused.lossy.encoding).toBe("latin-1");
+			expect(refused.lossy.lossyCharCount).toBe(1);
+			expect(refused.lossy.firstIndex).toBe(6);
+			expect(refused.lossy.sample).toContain("—");
+		}
+
+		// File should NOT exist yet — the refused write didn't touch disk
+		expect(() => readFileSync(p)).toThrow();
+
+		// Caller opts in to lossy save
+		const allowed = await writeText(p, "hello — world", { encoding: "latin-1", eol: "lf", bom: false }, { allowLossy: true });
+		expect(allowed.ok).toBe(true);
+		if (allowed.ok === true) expect(allowed.lossyChars).toBe(1);
+		const buf = readFileSync(p);
+		// The em-dash got truncated to its low byte (0x14) — that's expected once
+		// the user explicitly opted in. We just assert no throw and right length.
+		expect(buf.length).toBeGreaterThan(0);
 		unlinkSync(p);
 	});
 });
@@ -428,7 +480,52 @@ import { writeFileSync } from "fs";
 
 export type WriteMeta = { encoding: Encoding; eol: EOL; bom: boolean };
 
-export async function writeText(path: string, content: string, meta: WriteMeta): Promise<void> {
+/** F2: When the target encoding can't represent some chars, refuse the write
+ *  and return diagnostic info so the caller can show a confirm modal. The
+ *  caller can opt in to the lossy save by passing `{ allowLossy: true }`. */
+export type WriteResult =
+	| { ok: true; lossyChars?: number }
+	| { ok: false; lossy: { encoding: Encoding; lossyCharCount: number; firstIndex: number; sample: string } };
+
+function scanLossyForLatin1(content: string): { count: number; firstIndex: number } {
+	let count = 0;
+	let firstIndex = -1;
+	for (let i = 0; i < content.length; i++) {
+		if (content.charCodeAt(i) > 255) {
+			count++;
+			if (firstIndex < 0) firstIndex = i;
+		}
+	}
+	return { count, firstIndex };
+}
+
+export async function writeText(
+	path: string,
+	content: string,
+	meta: WriteMeta,
+	opts?: { allowLossy?: boolean },
+): Promise<WriteResult> {
+	// F2: Lossy-encoding precheck. UTF-8 / UTF-16 LE / UTF-16 BE round-trip
+	// every JS string. Latin-1 only covers code points 0–255 — any char
+	// above (em-dash 0x2014, emoji 0x1F600, etc.) gets silently truncated
+	// to 0x3F by Buffer.from(str, "latin1"). Refuse unless caller opts in.
+	if (meta.encoding === "latin-1") {
+		const { count, firstIndex } = scanLossyForLatin1(content);
+		if (count > 0 && !opts?.allowLossy) {
+			const sampleStart = Math.max(0, firstIndex - 10);
+			const sampleEnd = Math.min(content.length, firstIndex + 11);
+			return {
+				ok: false,
+				lossy: {
+					encoding: "latin-1",
+					lossyCharCount: count,
+					firstIndex,
+					sample: content.slice(sampleStart, sampleEnd),
+				},
+			};
+		}
+	}
+
 	// Normalize EOL: collapse to \n first, then expand to target
 	const normalized = content.replace(/\r\n/g, "\n");
 	const withEol = meta.eol === "crlf" ? normalized.replace(/\n/g, "\r\n") : normalized;
@@ -454,13 +551,20 @@ export async function writeText(path: string, content: string, meta: WriteMeta):
 	}
 
 	writeFileSync(path, Buffer.concat([bomBytes, bodyBytes]));
+
+	// If we got here with latin-1 and allowLossy=true, surface the count for callers.
+	if (meta.encoding === "latin-1" && opts?.allowLossy) {
+		const { count } = scanLossyForLatin1(content);
+		return count > 0 ? { ok: true, lossyChars: count } : { ok: true };
+	}
+	return { ok: true };
 }
 ```
 
 - [ ] **Step 4: Run tests — expect pass**
 
 Run: `bun test tests/text-io.test.ts`
-Expected: 11 pass total (6 read + 5 write).
+Expected: 14 pass total (8 read + 6 write — read includes 2 F1 regression guards; write includes 1 F2 lossy-encoding test).
 
 - [ ] **Step 5: Commit**
 
@@ -498,7 +602,15 @@ export type FilePayload = {
 	size?: number;
 };
 
-export type WriteResult = { ok: true } | { ok: false; error: string };
+// F2: Lossy-encoding diagnostic returned when target encoding can't represent
+// some characters. Renderer surfaces a confirm modal before retrying with
+// allowLossy: true. Errors stay as a separate 'error' branch.
+export type LossyInfo = { encoding: Encoding; lossyCharCount: number; firstIndex: number; sample: string };
+
+export type WriteResult =
+	| { ok: true; lossyChars?: number }
+	| { ok: false; lossy: LossyInfo }
+	| { ok: false; error: string };
 
 export type TreeNode =
 	| { type: "dir"; name: string; path: string; children: TreeNode[] }
@@ -553,8 +665,8 @@ export type AppRPC = {
 			openDialog: { params: {}; response: FilePayload | null };
 			openFolderDialog: { params: {}; response: FolderPayload | null };
 			readFile: { params: { path: string }; response: FilePayload };
-			writeFile: { params: { path: string; content: string; encoding: Encoding; eol: EOL; bom: boolean }; response: WriteResult };
-			saveAsDialog: { params: { defaultName: string; content: string; encoding: Encoding; eol: EOL; bom: boolean }; response: { ok: true; path: string } | { ok: false } };
+			writeFile: { params: { path: string; content: string; encoding: Encoding; eol: EOL; bom: boolean; allowLossy?: boolean }; response: WriteResult };
+			saveAsDialog: { params: { defaultName: string; content: string; encoding: Encoding; eol: EOL; bom: boolean; allowLossy?: boolean }; response: { ok: true; path: string; lossyChars?: number } | { ok: false; lossy?: LossyInfo } };
 			resolveImage: { params: { docPath: string; src: string }; response: ImageResolveResult };
 			getInitialFile: { params: {}; response: FilePayload | null };
 			openExternal: { params: { url: string }; response: { ok: boolean } };
@@ -688,16 +800,20 @@ debounce = setTimeout(async () => {
 In the `requests` block of `BrowserView.defineRPC<AppRPC>` (around line 263), add:
 
 ```ts
-writeFile: async ({ path, content, encoding, eol, bom }) => {
+writeFile: async ({ path, content, encoding, eol, bom, allowLossy }) => {
 	try {
 		stampSelfWrite(path);
-		await writeText(path, content, { encoding, eol, bom });
-		return { ok: true } as const;
+		const r = await writeText(path, content, { encoding, eol, bom }, { allowLossy: !!allowLossy });
+		if (r.ok === false) {
+			// F2: lossy refusal — bubble up the diagnostic so the renderer can confirm
+			return { ok: false, lossy: r.lossy } as const;
+		}
+		return { ok: true, lossyChars: r.lossyChars } as const;
 	} catch (err) {
 		return { ok: false, error: err instanceof Error ? err.message : String(err) } as const;
 	}
 },
-saveAsDialog: async ({ defaultName, content, encoding, eol, bom }) => {
+saveAsDialog: async ({ defaultName, content, encoding, eol, bom, allowLossy }) => {
 	const folder = await Utils.openFileDialog({
 		startingFolder: PLATFORM_HOME,
 		canChooseFiles: false,
@@ -710,8 +826,11 @@ saveAsDialog: async ({ defaultName, content, encoding, eol, bom }) => {
 	const target = join(dir, safeName);
 	try {
 		stampSelfWrite(target);
-		await writeText(target, content, { encoding, eol, bom });
-		return { ok: true, path: target } as const;
+		const r = await writeText(target, content, { encoding, eol, bom }, { allowLossy: !!allowLossy });
+		if (r.ok === false) {
+			return { ok: false, lossy: r.lossy } as const;
+		}
+		return { ok: true, path: target, lossyChars: r.lossyChars } as const;
 	} catch {
 		return { ok: false } as const;
 	}
@@ -737,7 +856,7 @@ Run: `bunx tsc --noEmit`
 Expected: no errors in `src/bun/index.ts` or `src/shared/rpc.ts`. (Renderer errors are still acceptable until Task 9.)
 
 Run: `bun test`
-Expected: 11 pass (no regressions in text-io tests).
+Expected: 14 pass (no regressions in text-io tests).
 
 - [ ] **Step 6: Commit**
 
@@ -1374,6 +1493,18 @@ Inside `renderFile`, just after `lastPayload = payload;`:
 Below `toggleMode`:
 
 ```ts
+// F2: surface the lossy-encoding refusal to the user with a confirm modal.
+// Returns true if the user wants to proceed with the lossy save anyway.
+async function confirmLossy(lossy: { encoding: import("../shared/rpc").Encoding; lossyCharCount: number; firstIndex: number; sample: string }): Promise<boolean> {
+	const msg =
+		`Saving as ${lossy.encoding.toUpperCase()} will lose ${lossy.lossyCharCount} character` +
+		`${lossy.lossyCharCount === 1 ? "" : "s"} that ${lossy.lossyCharCount === 1 ? "isn't" : "aren't"} ` +
+		`representable in ${lossy.encoding}.\n\n` +
+		`First lossy char at index ${lossy.firstIndex}. Surrounding text: "${lossy.sample}"\n\n` +
+		`Save anyway?`;
+	return Promise.resolve(window.confirm(msg));
+}
+
 async function save(): Promise<boolean> {
 	if (!lastPayload) return false;
 	const content = viewMode === "editor" && editor ? editor.getDoc() : lastPayload.content;
@@ -1381,21 +1512,36 @@ async function save(): Promise<boolean> {
 	if (!lastPayload.path || onlyName) {
 		return saveAs(content);
 	}
-	const r = await electroview.rpc!.request.writeFile({
-		path: lastPayload.path,
-		content,
-		encoding: docMeta.encoding,
-		eol: docMeta.eol,
-		bom: docMeta.bom,
-	});
-	if (r.ok) {
-		savedContent = content;
-		updateDirtyIndicator();
-		statusStats.textContent = "Saved";
-		setTimeout(() => { if (lastPayload) statusStats.textContent = `${lastPayload.content.length.toLocaleString()} chars`; }, 1500);
-		return true;
+	let allowLossy = false;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const r = await electroview.rpc!.request.writeFile({
+			path: lastPayload.path,
+			content,
+			encoding: docMeta.encoding,
+			eol: docMeta.eol,
+			bom: docMeta.bom,
+			allowLossy,
+		});
+		if (r.ok) {
+			savedContent = content;
+			updateDirtyIndicator();
+			statusStats.textContent = r.lossyChars ? `Saved (${r.lossyChars} char${r.lossyChars === 1 ? "" : "s"} lost)` : "Saved";
+			setTimeout(() => { if (lastPayload) statusStats.textContent = `${lastPayload.content.length.toLocaleString()} chars`; }, 1500);
+			return true;
+		}
+		// F2: refused for lossy reasons → confirm and retry once
+		if ("lossy" in r && r.lossy) {
+			const proceed = await confirmLossy(r.lossy);
+			if (!proceed) {
+				statusStats.textContent = "Save cancelled (would have lost characters)";
+				return false;
+			}
+			allowLossy = true;
+			continue;
+		}
+		statusStats.textContent = `Save failed: ${(r as any).error || "?"}`;
+		return false;
 	}
-	statusStats.textContent = `Save failed: ${(r as any).error || "?"}`;
 	return false;
 }
 
@@ -1403,17 +1549,29 @@ async function saveAs(content?: string): Promise<boolean> {
 	if (!lastPayload) return false;
 	const body = content ?? (viewMode === "editor" && editor ? editor.getDoc() : lastPayload.content);
 	const defaultName = (lastPayload.path.split(/[\\/]/).pop() || "untitled.txt");
-	const r = await electroview.rpc!.request.saveAsDialog({
-		defaultName, content: body,
-		encoding: docMeta.encoding, eol: docMeta.eol, bom: docMeta.bom,
-	});
-	if (r.ok) {
-		lastPayload = { ...lastPayload, path: r.path, content: body };
-		savedContent = body;
-		document.title = r.path.split(/[\\/]/).pop() || "Markdown Viewer";
-		statusPath.textContent = r.path;
-		updateDirtyIndicator();
-		return true;
+	let allowLossy = false;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const r = await electroview.rpc!.request.saveAsDialog({
+			defaultName, content: body,
+			encoding: docMeta.encoding, eol: docMeta.eol, bom: docMeta.bom,
+			allowLossy,
+		});
+		if (r.ok) {
+			lastPayload = { ...lastPayload, path: r.path, content: body };
+			savedContent = body;
+			document.title = r.path.split(/[\\/]/).pop() || "Markdown Viewer";
+			statusPath.textContent = r.path;
+			updateDirtyIndicator();
+			return true;
+		}
+		// F2: refused for lossy reasons (only happens before the dialog returns; so dialog WAS shown and user picked a folder; we just refused on encoding)
+		if ("lossy" in r && r.lossy) {
+			const proceed = await confirmLossy(r.lossy);
+			if (!proceed) return false;
+			allowLossy = true;
+			continue;
+		}
+		return false;
 	}
 	return false;
 }
@@ -1993,6 +2151,20 @@ describe("TabStore — state transitions", () => {
 		s.setContent(id, "z");
 		expect(observed).toBe("z");
 	});
+
+	// F3 regression guard — openDoc unconditionally sets active to the new id,
+	// so callers like the session-restore loop must re-assert their intended
+	// active tab afterwards. This test pins that contract: setActive after a
+	// chain of openDoc calls overrides the implicit last-active.
+	test("setActive after multiple openDoc calls overrides last-active", () => {
+		const s = new TabStore();
+		const a = s.openDoc(baseTab("/a.txt", "a"));
+		s.openDoc(baseTab("/b.txt", "b"));
+		const c = s.openDoc(baseTab("/c.txt", "c"));
+		expect(s.activeId()).toBe(c);
+		s.setActive(a);
+		expect(s.activeId()).toBe(a);
+	});
 });
 ```
 
@@ -2103,7 +2275,7 @@ export class TabStore {
 - [ ] **Step 4: Run tests — expect pass**
 
 Run: `bun test`
-Expected: 18 pass total (11 text-io + 7 tabs).
+Expected: 22 pass total (14 text-io + 8 tabs — tabs includes 1 F3 setActive-after-openDoc regression guard).
 
 - [ ] **Step 5: Commit**
 
@@ -2268,7 +2440,7 @@ const discardCancel = document.getElementById("discard-cancel") as HTMLButtonEle
 (c) Replace `renderFile` with a new entry point that opens-or-activates a tab. Keep `renderPreview` (the old `renderFile` body) as-is, but make it accept a `Tab` instead of a `FilePayload`:
 
 ```ts
-async function openOrActivate(payload: FilePayload) {
+async function openOrActivate(payload: FilePayload): Promise<string | null> {
 	if (payload.error) {
 		// inline error
 		contentEl.classList.remove("welcome");
@@ -2277,7 +2449,7 @@ async function openOrActivate(payload: FilePayload) {
 		const p1 = document.createElement("p"); p1.textContent = payload.error; contentEl.appendChild(p1);
 		const p2 = document.createElement("p"); const code = document.createElement("code"); code.textContent = payload.path; p2.appendChild(code); contentEl.appendChild(p2);
 		statusPath.textContent = payload.path;
-		return;
+		return null;
 	}
 	const language = inferLanguage(payload.path);
 	const id = tabs.openDoc({
@@ -2294,6 +2466,7 @@ async function openOrActivate(payload: FilePayload) {
 	tabs.setActive(id);
 	renderTabs();
 	await renderActive();
+	return id;
 }
 
 async function renderActive() {
@@ -2378,19 +2551,34 @@ async function save(): Promise<boolean> {
 	if (!t) return false;
 	const content = liveContent() || "";
 	if (!t.path) return saveAs();
-	const r = await electroview.rpc!.request.writeFile({
-		path: t.path, content,
-		encoding: t.encoding, eol: t.eol, bom: t.bom,
-	});
-	if (r.ok) {
-		tabs.setContent(t.id, content);
-		tabs.markSaved(t.id);
-		updateDirtyIndicator();
-		statusStats.textContent = "Saved";
-		setTimeout(() => { statusStats.textContent = `${content.length.toLocaleString()} chars`; }, 1500);
-		return true;
+	let allowLossy = false;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const r = await electroview.rpc!.request.writeFile({
+			path: t.path, content,
+			encoding: t.encoding, eol: t.eol, bom: t.bom,
+			allowLossy,
+		});
+		if (r.ok) {
+			tabs.setContent(t.id, content);
+			tabs.markSaved(t.id);
+			updateDirtyIndicator();
+			statusStats.textContent = r.lossyChars ? `Saved (${r.lossyChars} char${r.lossyChars === 1 ? "" : "s"} lost)` : "Saved";
+			setTimeout(() => { statusStats.textContent = `${content.length.toLocaleString()} chars`; }, 1500);
+			return true;
+		}
+		// F2: refused for lossy reasons → confirm and retry once
+		if ("lossy" in r && r.lossy) {
+			const proceed = await confirmLossy(r.lossy);
+			if (!proceed) {
+				statusStats.textContent = "Save cancelled (would have lost characters)";
+				return false;
+			}
+			allowLossy = true;
+			continue;
+		}
+		statusStats.textContent = `Save failed: ${(r as any).error || "?"}`;
+		return false;
 	}
-	statusStats.textContent = `Save failed: ${(r as any).error || "?"}`;
 	return false;
 }
 
@@ -2398,16 +2586,27 @@ async function saveAs(): Promise<boolean> {
 	const t = activeTab();
 	if (!t) return false;
 	const body = liveContent() || "";
-	const r = await electroview.rpc!.request.saveAsDialog({
-		defaultName: t.name,
-		content: body,
-		encoding: t.encoding, eol: t.eol, bom: t.bom,
-	});
-	if (r.ok) {
-		tabs.setContent(t.id, body);
-		tabs.markSaved(t.id, r.path);
-		updateDirtyIndicator();
-		return true;
+	let allowLossy = false;
+	for (let attempt = 0; attempt < 2; attempt++) {
+		const r = await electroview.rpc!.request.saveAsDialog({
+			defaultName: t.name,
+			content: body,
+			encoding: t.encoding, eol: t.eol, bom: t.bom,
+			allowLossy,
+		});
+		if (r.ok) {
+			tabs.setContent(t.id, body);
+			tabs.markSaved(t.id, r.path);
+			updateDirtyIndicator();
+			return true;
+		}
+		if ("lossy" in r && r.lossy) {
+			const proceed = await confirmLossy(r.lossy);
+			if (!proceed) return false;
+			allowLossy = true;
+			continue;
+		}
+		return false;
 	}
 	return false;
 }
@@ -2746,7 +2945,7 @@ export function createSessionStore(dir: string) {
 - [ ] **Step 4: Run — expect pass**
 
 Run: `bun test`
-Expected: 21 pass total.
+Expected: 25 pass total (14 text-io + 8 tabs + 3 session-store).
 
 - [ ] **Step 5: Commit**
 
@@ -2839,14 +3038,21 @@ Replace the existing boot IIFE at the bottom:
 	const session = createSession(electroview as any);
 	const sessionState = await session.load();
 
-	// Honor double-click open first
+	// Honor double-click open first; capture the resulting tab id so we can
+	// re-assert it as active AFTER the session-restore loop (F3 fix — the
+	// loop's openDoc calls would otherwise override the active tab to the
+	// last-restored session entry).
 	const initial = await electroview.rpc!.request.getInitialFile({});
+	let initialTabId: string | null = null;
 	if (initial && !initial.error) {
-		await openOrActivate(initial);
+		initialTabId = await openOrActivate(initial);
 	}
 
-	// Restore tabs that still resolve on disk; untitled tabs always restore
+	// Restore tabs that still resolve on disk; untitled tabs always restore.
+	// Skip the path the user double-clicked (already opened above) so we
+	// don't dedup-collide with it.
 	for (const t of sessionState.tabs) {
+		if (initial && t.path && t.path === initial.path) continue;
 		if (t.path === null && t.untitledContent !== undefined) {
 			tabs.openDoc({
 				path: null, name: t.name,
@@ -2871,13 +3077,16 @@ Replace the existing boot IIFE at the bottom:
 			}
 		}
 	}
-	// If no double-click happened, restore the previously-active tab
-	if (!initial && sessionState.activeTabId) {
+
+	// F3 fix: re-assert active tab AFTER the restore loop, so openDoc's
+	// implicit "set active to new tab" doesn't override the user's intent.
+	if (initialTabId) {
+		// Double-click takes priority over previously-active session tab
+		tabs.setActive(initialTabId);
+	} else if (sessionState.activeTabId) {
 		const list = tabs.list();
-		const match = list.find((tt) => {
-			const sess = sessionState.tabs.find((s) => s.id === sessionState.activeTabId);
-			return sess && (tt.path === sess.path);
-		});
+		const sess = sessionState.tabs.find((s) => s.id === sessionState.activeTabId);
+		const match = sess ? list.find((tt) => tt.path === sess.path) : null;
 		if (match) tabs.setActive(match.id);
 	}
 	renderTabs();
@@ -2962,6 +3171,112 @@ git commit -m "docs(readme): document editor + tabs + new keyboard shortcuts"
 
 ---
 
+### Task 19a: Bundle-size guard (F5)
+
+**Files:**
+- Create: `tests/bundle-size.test.ts`
+- Modify: `package.json` (add `test:bundle` script)
+
+**Why:** Spec §11.1 risk says "CM6 bundle bloat from language packs — Lazy-load per language; **measure final bundle in CI**." The plan implements lazy-loading correctly but until now had only a manual smoke checkbox. This task adds a hard test that fails if the bundled renderer exceeds a calibrated ceiling, so a future contributor adding `@codemirror/lang-cpp` to the eager bundle (instead of legacy-modes lazy-load) gets caught at PR time.
+
+- [ ] **Step 1: Establish a baseline**
+
+Run a release build:
+
+```bash
+bun run build:release
+```
+
+Then measure the renderer bundle size. The artifact path varies by platform — pick the right one:
+
+```bash
+# macOS arm64
+ls -la "build/stable-macos-arm64/Markdown Viewer.app/Contents/Resources/app/views/mainview/index.js"
+
+# macOS x64
+ls -la "build/stable-macos-x64/Markdown Viewer.app/Contents/Resources/app/views/mainview/index.js"
+
+# Windows x64
+ls -la "build/stable-windows-x64/views/mainview/index.js"
+```
+
+Expected: a number in bytes. Record it as **`POST_FEATURE_BUNDLE_SIZE`**. The ceiling is `POST_FEATURE_BUNDLE_SIZE × 1.15` (15% slack for normal evolution). If the post-feature size is e.g. 1.05 MB, the ceiling is ~1.21 MB.
+
+If you have access to the pre-feature baseline (the size before this plan started), confirm the delta is < 5 MB total — that's the spec §11.1 budget.
+
+- [ ] **Step 2: Add the test runner**
+
+Create `tests/bundle-size.test.ts`:
+
+```ts
+import { describe, expect, test } from "bun:test";
+import { existsSync, statSync } from "fs";
+import { join } from "path";
+
+// F5 — bundle-size guard. Set the ceiling to your measured POST_FEATURE_BUNDLE_SIZE × 1.15
+// (in bytes). Update CEILING when you intentionally take a budget hit.
+const CEILING = 1_500_000; // 1.5 MB — tune to your measurement
+
+// All known build target paths. The test passes if at least one exists and is under
+// the ceiling — covers macOS arm64/x64, Windows x64, and dev builds.
+const candidates = [
+	"build/stable-macos-arm64/Markdown Viewer.app/Contents/Resources/app/views/mainview/index.js",
+	"build/stable-macos-x64/Markdown Viewer.app/Contents/Resources/app/views/mainview/index.js",
+	"build/stable-windows-x64/views/mainview/index.js",
+	"build/dev-macos-arm64/Markdown Viewer-dev.app/Contents/Resources/app/views/mainview/index.js",
+	"build/dev-macos-x64/Markdown Viewer-dev.app/Contents/Resources/app/views/mainview/index.js",
+	"build/dev-windows-x64/views/mainview/index.js",
+];
+
+describe("bundle size (F5)", () => {
+	test("renderer bundle is under ceiling", () => {
+		const found = candidates
+			.map((rel) => join(process.cwd(), rel))
+			.filter((p) => existsSync(p))
+			.map((p) => ({ path: p, size: statSync(p).size }));
+
+		if (found.length === 0) {
+			// No build artifacts on disk yet. Skip with a clear message — running
+			// `bun run build:release` first is required for this test to be useful.
+			console.warn("[bundle-size] no build artifact found; run `bun run build:release` first. Skipping.");
+			return;
+		}
+
+		for (const { path, size } of found) {
+			expect(size, `${path} is ${size} bytes; ceiling is ${CEILING}`).toBeLessThan(CEILING);
+		}
+	});
+});
+```
+
+- [ ] **Step 3: Add the CI script**
+
+Edit `package.json` `scripts`:
+
+```json
+"test": "bun test",
+"test:bundle": "bun run build:release && bun test tests/bundle-size.test.ts"
+```
+
+(`test:bundle` builds a release bundle then measures. Plain `bun test` includes the bundle test too — but if no build is on disk, it skips gracefully via the no-artifact branch.)
+
+- [ ] **Step 4: Run it**
+
+```bash
+bun run test:bundle
+```
+
+Expected: 1 pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add tests/bundle-size.test.ts package.json
+git commit -m "feat(ci): bundle-size guard (F5) — assert renderer bundle under ceiling"
+```
+
+---
+
 ### Task 20: Final smoke pass
 
 **Files:**
@@ -2997,7 +3312,7 @@ Run: `bun run dev`. Tick every box. File any failures as follow-up issues if non
 - [ ] **Step 3: Final test pass**
 
 Run: `bun test`
-Expected: 21 pass.
+Expected: 25 pass (14 text-io + 8 tabs + 3 session-store).
 
 - [ ] **Step 4: Commit**
 
@@ -3029,10 +3344,12 @@ git commit -m "docs(test): extend smoke checklist with tabs + session-restore + 
 | §7.4 External change | 10, 16 |
 | §7.5 Close tab | 16 |
 | §7.6 App quit / restore | 18 |
-| §8 Error & edge cases | 5 (binary, large), 9 (errors), 10 (external), 16 (dirty close), 18 (deleted on relaunch) |
-| §9 Testing | 2, 3, 15, 17 (units), 14, 20 (manual) |
+| §8 Error & edge cases | 5 (binary, large), 9 (errors, F2 lossy), 10 (external), 16 (dirty close, F2 lossy per-tab), 18 (deleted on relaunch) |
+| §8 (updated) Lossy encoding save | 3 (writeText), 9 (single-doc save flow), 16 (per-tab save flow) — all gated by `confirmLossy` modal |
+| §8 (updated) Duplicate-path tab | 15 (TabStore.openDoc dedup) |
+| §9 Testing | 2, 3, 15, 17 (units), 14, 20 (manual), 19a (bundle-size) |
 | §10 Migration | 19 |
-| §11 Risks | 1 (bundle), 5 (echo), 2/3 (encoding round-trip) |
+| §11 Risks | 1 (bundle), 5 (echo), 2/3 (encoding round-trip), 19a (automated bundle guard for §11.1) |
 
 No spec sections are unmapped.
 
@@ -3041,9 +3358,14 @@ No spec sections are unmapped.
 ## Plan self-review notes
 
 - **Placeholder scan:** No "TBD", "TODO", "implement later", or unaccompanied test references.
-- **Type consistency:** `Tab.viewMode` matches `Doc.viewMode` from spec; `Encoding`/`EOL` exported from `text-io.ts` and re-exported in `rpc.ts`.
-- **Function name consistency:** `readText`/`writeText` (text-io); `openDoc`/`close`/`setActive`/`isDirty`/`markSaved` (TabStore); `createEditor` (editor.ts); `createSessionStore`/`createSession` (session). No drift between definition and consumer.
+- **Type consistency:** `Tab.viewMode` matches `Doc.viewMode` from spec; `Encoding`/`EOL` exported from `text-io.ts` and re-exported in `rpc.ts`. `WriteResult` and `LossyInfo` types added in Task 4 (F2) match the runtime returns from `writeText` (Task 3) and the RPC handlers (Task 5).
+- **Function name consistency:** `readText`/`writeText` (text-io); `openDoc`/`close`/`setActive`/`isDirty`/`markSaved` (TabStore); `createEditor` (editor.ts); `createSessionStore`/`createSession` (session); `confirmLossy` (used in Task 9 single-doc save and Task 16 per-tab save). No drift between definition and consumer.
 - **Compartment correctness:** `languageCompartment.reconfigure(lang ? [lang] : [])` accepts an array (CM6 idiom).
 - **Watcher echo:** `recentSelfWrites` stamped *before* `writeText` (Task 5 step 3) so the watcher's debounced fire (~80 ms after) reliably sees the stamp.
-- **Boot order in Task 18:** double-click file dispatches *before* session restore loop, so the user's clicked file remains foremost.
+- **Boot order in Task 18 (F3 fix applied):** double-click file dispatches *before* session restore loop AND `tabs.setActive(initialTabId)` is re-asserted *after* the loop, so the implicit "openDoc sets active" doesn't silently override the user's clicked file.
 - **No `innerHTML` with user data:** Tab strip rendering uses `createElement` + `textContent` per Task 16 step 4 — no XSS exposure from filenames.
+- **F1 (binary detector ordering):** Task 2 implementation calls `detectEncoding` *before* `isBinary`, and skips NUL detection for `utf-16le`/`utf-16be`. Two regression tests in Task 2 lock this in.
+- **F2 (lossy save):** `writeText` returns `{ ok: true, lossyChars? } | { ok: false, lossy } | { ok: false, error }`. RPC handlers in Task 5 surface the lossy variant; Task 9 (single-doc) and Task 16 (per-tab) save flows confirm with `window.confirm` and retry with `allowLossy: true`. One regression test in Task 3.
+- **F3 (session-restore active):** Task 18 boot block captures `initialTabId` from `openOrActivate` (return type changed to `Promise<string | null>` in Task 16), iterates restore loop while skipping the double-clicked path, then re-asserts active. One regression test in Task 15.
+- **F4 (dup-tab):** Spec §8 wording updated; plan behavior (dedup) unchanged.
+- **F5 (bundle guard):** Task 19a adds `tests/bundle-size.test.ts` with a hard ceiling assertion plus a `test:bundle` npm script.

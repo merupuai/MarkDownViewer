@@ -256,7 +256,8 @@ session.save() runs first; on next launch, tabs reopen in order with the previou
 | Binary file opened by mistake (e.g. `.png`) | Detect via NUL-byte scan in first 8 KB → refuse: "Binary file. Open with system app?" |
 | File too large (>10 MB) | Open in read-only mode with warning |
 | Encoding misdetect | Encoding chip in status bar → click to Reopen As… |
-| Two tabs pointing at same path | Allowed but flagged in status bar |
+| Saving content with chars unrepresentable in target encoding (e.g. em-dash to Latin-1) | Confirm modal: "Saving as <ENC> will lose <N> char(s) that aren't representable. Save anyway?" — never silent. Status bar shows `Saved (N chars lost)` when user opts in. |
+| Opening a file that's already open in another tab | Activate the existing tab; do not create a duplicate. (Updated 2026-05-04 — original "allowed but flagged" wording dropped because the single-window UX has no good reason for parallel buffers on one file; the dedup also prevents save-conflict pathologies.) |
 | Markdown preview crash (e.g. mermaid bug) | Existing per-block catch survives; if whole pipeline throws, tab falls back to editor mode with banner |
 | Watcher echo loop | `recentSelfWrites` map with 1-second TTL |
 | Untitled tab + app quit | Session-store keeps content as in-memory blob (capped 1 MB); paths-only for everything else |
