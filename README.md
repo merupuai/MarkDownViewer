@@ -6,7 +6,7 @@
 
 ### A native desktop markdown viewer with first-class Mermaid + C4 diagrams, KaTeX math, GitHub-style alerts, and full file/folder navigation.
 
-<sub>© <strong>MFTLabs</strong> · Developed by <strong>CoBolt</strong> · <img src="assets/CoBolt_Name_Logo.png" alt="CoBolt" height="18" valign="middle" /></sub>
+<sub>© <strong>MFTLabs</strong> · Powered by <strong>CoBolt</strong> · <img src="assets/CoBolt_Name_Logo.png" alt="CoBolt" height="18" valign="middle" /></sub>
 
 [![Platform: macOS](https://img.shields.io/badge/macOS-13%2B-000?style=for-the-badge&logo=apple&logoColor=white)](#install--macos)
 [![Platform: Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#install--windows)
@@ -118,8 +118,8 @@ A wikilink to [[Architecture]] resolves against the open folder.
 > Tested on macOS 13+ (Apple Silicon and Intel).
 
 ```bash
-git clone https://github.com/manyamgermany/markdown.git
-cd markdown
+git clone https://github.com/merupuai/MarkDownViewer.git
+cd MarkDownViewer
 ./scripts/install-macos.sh
 ```
 
@@ -167,8 +167,8 @@ You need to be **on a Windows machine** to build the Windows version (Electrobun
 ### Option A — One-shot install via PowerShell <small>(recommended)</small>
 
 ```powershell
-git clone https://github.com/manyamgermany/markdown.git
-cd markdown
+git clone https://github.com/merupuai/MarkDownViewer.git
+cd MarkDownViewer
 powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1 -BuildFirst
 ```
 
