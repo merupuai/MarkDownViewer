@@ -193,15 +193,34 @@ powershell -ExecutionPolicy Bypass -File .\scripts\install-windows.ps1 -SetDefau
 
 For distribution to end users you'll want a real installer with an "Always use this app" checkbox baked in. Use [Inno Setup 6](https://jrsoftware.org/isinfo.php):
 
-```powershell
-# 1. Build the app
-powershell -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
+#### One-shot (recommended)
 
-# 2. Compile the installer
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" windows\MarkdownViewerSetup.iss
+```powershell
+# Prerequisites (one-time):
+winget install --id JRSoftware.InnoSetup --accept-source-agreements --accept-package-agreements
+winget install Facebook.Zstandard      # OR: winget install 7zip.7zip
+                                        # OR: just have any prior `electrobun build`
+                                        # output around (it ships zig-zstd.exe)
+
+# Then, end-to-end:
+powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
 ```
 
-Output: `build\windows-installer\MarkdownViewerSetup.exe` — a single setup `.exe` that:
+`build-installer.ps1` runs `electrobun build --env=stable`, extracts the `.tar.zst` runtime payload into a flat `build\stable-win-x64-app\` tree, locates `ISCC.exe` (Program Files or `%LOCALAPPDATA%\Programs\Inno Setup 6`), compiles the installer, and reports its path + SHA-256.
+
+Useful flags: `-SkipBuild` (re-compile installer only — faster iteration on `.iss` changes), `-InnoSetupPath '<...>\ISCC.exe'` (override compiler location), `-SkipBunInstall` (forwarded to the build step).
+
+#### Two-step (manual)
+
+```powershell
+# 1. Build the app + stage the unpacked runtime
+powershell -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
+
+# 2. Compile the installer (use whichever path your install put ISCC at)
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" windows\MarkdownViewerSetup.iss
+```
+
+Output (either path): `build\windows-installer\MarkdownViewerSetup.exe` — a single setup `.exe` that:
 - **Shows a license-acceptance screen** ("I accept the agreement" / "I do not accept") — required to proceed; this is how the no-resale clause is contractually accepted at install time
 - Shows a plain-language **license notice** ahead of the legal text (`windows/license-notice.txt`)
 - Bundles the full `LICENSE` into the install directory (`LICENSE.txt`) and adds a Start Menu shortcut to it

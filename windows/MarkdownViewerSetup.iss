@@ -15,15 +15,22 @@
 ;   4. Output: build\windows-installer\MarkdownViewerSetup.exe
 
 #define MyAppName        "Markdown Viewer"
-#define MyAppVersion     "1.0.0"
+#define MyAppVersion     "1.1.0"
 #define MyAppPublisher   "MFTLabs"
 #define MyAppDeveloper   "CoBolt"
 #define MyAppPublisherURL "https://mftlabs.io"
 #define MyAppCopyright   "Copyright (c) 2026 MFTLabs. Developed by CoBolt. Resale prohibited."
 #define MyAppExeName     "Markdown Viewer.exe"
+; Real on-disk path of the runnable inside {app}. Electrobun's stable build
+; places the launcher under bin/, not at the install root, so registry
+; commands and shortcuts must use this path. MyAppExeName above stays as the
+; "friendly" basename used for the HKCU\Software\Classes\Applications subkey.
+#define MyAppExeRelPath  "bin\launcher.exe"
 #define MyAppId          "com.local.markdownviewer"
 #define MyAppProgId      "MarkdownViewer.MarkdownDocument"
-#define MyAppSourceDir   "..\build\stable-win-x64"
+; Pre-staged unpacked layout produced by extracting the stable tarball.
+; See scripts/stage-windows-app.ps1 (or the equivalent commands in README).
+#define MyAppSourceDir   "..\build\stable-win-x64-app"
 #define MyAppIcon        "..\assets\brand\AppIcon.ico"
 #define MyAppLicenseFile "..\LICENSE"
 
@@ -91,20 +98,20 @@ Source: "{#MyAppIcon}"; DestDir: "{app}"; DestName: "AppIcon.ico"; Flags: ignore
 Source: "{#MyAppLicenseFile}"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\AppIcon.ico"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeRelPath}"; IconFilename: "{app}\AppIcon.ico"
 Name: "{group}\License (MFTLabs · Non-Resale)"; Filename: "{app}\LICENSE.txt"
-Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\AppIcon.ico"; Tasks: desktopicon
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeRelPath}"; IconFilename: "{app}\AppIcon.ico"; Tasks: desktopicon
 
 [Registry]
 ; ProgID
 Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}";              ValueType: string; ValueName: "";                ValueData: "Markdown Document"; Flags: uninsdeletekey; Tasks: associatemd
 Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\DefaultIcon";  ValueType: string; ValueName: "";                ValueData: """{app}\AppIcon.ico"""; Tasks: associatemd
 Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\shell\open";   ValueType: string; ValueName: "";                ValueData: "Open"; Tasks: associatemd
-Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\shell\open\command"; ValueType: string; ValueName: "";          ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: associatemd
+Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\shell\open\command"; ValueType: string; ValueName: "";          ValueData: """{app}\{#MyAppExeRelPath}"" ""%1"""; Tasks: associatemd
 
 ; App registration
 Root: HKCU; Subkey: "Software\Classes\Applications\{#MyAppExeName}"; ValueType: string; ValueName: "FriendlyAppName"; ValueData: "{#MyAppName}"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Classes\Applications\{#MyAppExeName}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+Root: HKCU; Subkey: "Software\Classes\Applications\{#MyAppExeName}\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeRelPath}"" ""%1"""
 Root: HKCU; Subkey: "Software\Classes\Applications\{#MyAppExeName}\SupportedTypes"; ValueType: string; ValueName: ".md";       ValueData: ""
 Root: HKCU; Subkey: "Software\Classes\Applications\{#MyAppExeName}\SupportedTypes"; ValueType: string; ValueName: ".markdown"; ValueData: ""
 Root: HKCU; Subkey: "Software\Classes\Applications\{#MyAppExeName}\SupportedTypes"; ValueType: string; ValueName: ".mdown";    ValueData: ""
@@ -132,7 +139,7 @@ Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities\FileAssociations"; Value
 Root: HKCU; Subkey: "Software\RegisteredApplications"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: "Software\{#MyAppName}\Capabilities"; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\{#MyAppExeRelPath}"; Description: "Launch {#MyAppName}"; Flags: postinstall nowait skipifsilent
 Filename: "ms-settings:defaultapps"; Description: "Open Default Apps to set {#MyAppName} as default"; Flags: postinstall shellexec skipifsilent runasoriginaluser; Tasks: setdefault
 
 [UninstallDelete]
@@ -146,8 +153,10 @@ var
   EulaText: AnsiString;
 begin
   if CurStep = ssPostInstall then begin
-    // Notify shell of association changes
-    SendBroadcastMessage(WM_SETTINGCHANGE, 0, 0);
+    // Notify shell of association changes (WM_SETTINGCHANGE = $001A — Inno
+    // Pascal doesn't predefine the Win32 message constants, so use the raw
+    // value).
+    SendBroadcastMessage($001A, 0, 0);
 
     // Pre-populate the runtime EULA marker so the app's first-run license
     // dialog is skipped for installer-based installs (the user already
