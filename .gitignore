@@ -6,6 +6,9 @@ build/
 artifacts/
 dist/
 
+# Git worktrees (isolated dev workspaces)
+.worktrees/
+
 # CoBolt / runtime instrumentation outputs (not part of the app)
 _cobolt-output/
 .claude/
