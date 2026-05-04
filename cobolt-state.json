@@ -1,0 +1,197 @@
+{
+  "projectId": "cobolt-markdownviewer-c533e3",
+  "projectType": "brownfield",
+  "runtime": "ide-plugin",
+  "enterprise": {
+    "tenant": "default",
+    "rbacPolicy": null,
+    "telemetry": {
+      "default": "off",
+      "lastCertification": null
+    }
+  },
+  "rbac": {
+    "policy": null,
+    "role": "admin",
+    "tenant": "default"
+  },
+  "currentStage": "completed",
+  "version": "0.66.2",
+  "scope": "mvp",
+  "skills": [
+    "cobolt-init",
+    "cobolt-plan",
+    "cobolt-build",
+    "cobolt-review",
+    "cobolt-fix",
+    "cobolt-deploy",
+    "cobolt-release",
+    "cobolt-version"
+  ],
+  "agentsCount": 163,
+  "customAgentsCount": 0,
+  "agentTeamsCount": 0,
+  "pipeline": {
+    "stages": {},
+    "currentPhase": null,
+    "currentMilestone": null,
+    "filesWritten": [],
+    "tasksCompleted": [],
+    "agentResults": [],
+    "writeVerification": {
+      "lastCheck": null,
+      "failures": [],
+      "totalVerified": 0,
+      "totalFailed": 0
+    },
+    "autonomous": true,
+    "mode": "autonomous",
+    "teamActive": false
+  },
+  "prQueue": {
+    "watchedRepos": [],
+    "active": null,
+    "queued": [],
+    "completed": [],
+    "lastPollAt": null,
+    "pollIntervalMinutes": 5
+  },
+  "resilience": {
+    "escalations": 0,
+    "lastEscalation": null,
+    "hardEscalations": 0,
+    "autoRecoveries": 0
+  },
+  "flags": {
+    "tddMode": "sequential",
+    "useWorktrees": true,
+    "generateSkills": true,
+    "autonomous": true,
+    "hasUI": null
+  },
+  "designMCP": {
+    "stitchProjectId": null,
+    "stitchProjectTitle": null,
+    "stitchDesignSystemId": null,
+    "figmaFileId": null,
+    "figmaFileUrl": null,
+    "createdAt": null,
+    "createdByMilestone": null
+  },
+  "wireframes": {
+    "mode": null,
+    "root": null,
+    "surfaces": [],
+    "lastFidelityRunAt": null,
+    "lastFidelityVerdict": null
+  },
+  "playwright": {
+    "installed": true,
+    "configPath": "e2e/playwright.config.js",
+    "lastSmokeTest": null,
+    "smokeTestPassed": null
+  },
+  "metrics": {
+    "stages": {},
+    "crossMilestoneSmokeFailures": 0,
+    "contractViolations": 0,
+    "behaviorCoverageGaps": 0,
+    "fixLoopPlateaus": 0,
+    "perfBudgetExceeded": 0,
+    "productionReadyScore": {}
+  },
+  "lastUpdated": "2026-05-04T14:42:06.166Z",
+  "initCheckpoints": {
+    "detect-configure": {
+      "completedAt": "2026-05-04T10:35:22.785Z"
+    },
+    "runtime-sync": {
+      "completedAt": "2026-05-04T10:35:22.837Z"
+    },
+    "create-directories": {
+      "completedAt": "2026-05-04T10:35:22.925Z"
+    },
+    "create-config": {
+      "completedAt": "2026-05-04T10:35:22.946Z"
+    },
+    "generate-docker": {
+      "completedAt": "2026-05-04T10:35:23.012Z"
+    },
+    "generate-playwright": {
+      "completedAt": "2026-05-04T10:35:23.018Z"
+    },
+    "design-tokens": {
+      "completedAt": "2026-05-04T10:35:23.055Z"
+    },
+    "install-quality": {
+      "completedAt": "2026-05-04T10:35:23.062Z"
+    },
+    "arch-bootstrap": {
+      "completedAt": "2026-05-04T10:35:55.682Z"
+    },
+    "project-version": {
+      "completedAt": "2026-05-04T10:35:55.696Z"
+    },
+    "generate-skills": {
+      "completedAt": "2026-05-04T10:35:55.705Z",
+      "skipped": true,
+      "reason": "deferred to interactive init workflow"
+    },
+    "create-claude-md": {
+      "completedAt": "2026-05-04T10:35:55.720Z"
+    },
+    "verify-global-hooks": {
+      "completedAt": "2026-05-04T10:35:55.729Z"
+    },
+    "verify-env-keys": {
+      "completedAt": "2026-05-04T10:35:55.737Z"
+    }
+  },
+  "_integrity": {
+    "sha256": "921742877fff0909e932f11fe4821588a25dda2dd3a1f9780cae2f4df468a150",
+    "verifiedAt": "2026-05-04T10:35:55.737Z"
+  },
+  "resolvedRoot": "C:\\Users\\admin\\Desktop\\markdown",
+  "gitRemote": "https://github.com/manyamgermany/markdown.git",
+  "projectVersion": {
+    "mode": "native",
+    "source": "package.json",
+    "current": "1.0.0",
+    "mirrors": [],
+    "initializedAt": "2026-05-04T10:35:55.689Z"
+  },
+  "build": {
+    "milestoneLoop": {
+      "autoMode": true,
+      "completed": [
+        "M1",
+        "M2",
+        "M3",
+        "M4"
+      ],
+      "partial": [],
+      "totalMilestones": 4
+    },
+    "autonomous": true,
+    "currentStep": "milestone-complete",
+    "milestone": "M4-complete",
+    "lastCompletedMilestone": "M4",
+    "completedAllMilestones": true,
+    "completedAt": "2026-05-04T14:36:58Z"
+  },
+  "planning": {
+    "autonomous": true
+  },
+  "audit": {
+    "lastRun": "2026-05-04T14:42:05Z",
+    "milestone": "M4",
+    "mode": "final",
+    "score": 87,
+    "grade": "B+",
+    "verdict": "CONDITIONAL",
+    "stubCount": 0,
+    "criticalStubCount": 0,
+    "accuracyScore": 8.7,
+    "accuracyVerdict": "FAIL"
+  }
+}

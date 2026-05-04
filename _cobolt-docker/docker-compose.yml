@@ -1,0 +1,42 @@
+name: ${COMPOSE_PROJECT_NAME}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    environment:
+      POSTGRES_DB: ${PROJECT_DB_NAME}
+      POSTGRES_USER: ${PROJECT_USER}
+      POSTGRES_PASSWORD: ${PROJECT_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PROJECT_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "${REDIS_PORT}:6379"
+    volumes:
+      - redis_data:/data
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.52.0-noble
+    working_dir: /app
+    entrypoint: ["sleep", "infinity"]
+    env_file:
+      - .env
+    volumes:
+      - ../:/app
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  default:
+    name: cobolt-network-c533e3

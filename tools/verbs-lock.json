@@ -1,0 +1,26 @@
+{
+  "_comment": "SF-01 verb surface lock. Adding/removing a verb requires updating this list. Reference: docs/superpowers/specs/2026-04-30-sf-01-cli-surface-collapse-design.md §7. Asserted by tools/cobolt-public-surface-check.js::assertVerbsLock().",
+  "verbs": [
+    "arch",
+    "audit",
+    "contract",
+    "cost",
+    "deploy",
+    "doctor",
+    "env",
+    "evidence",
+    "fleet",
+    "gate",
+    "output",
+    "plan",
+    "policy",
+    "release",
+    "rtm",
+    "scan",
+    "standards",
+    "state",
+    "status",
+    "story",
+    "tools"
+  ]
+}
