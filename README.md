@@ -72,6 +72,10 @@ This app fixes that. It registers as the system handler for `.md`, `.markdown`, 
 - ⏱ **Word count + reading time** in status bar
 - 📝 **Recent files** — persisted across launches
 - 🪣 **Drag & drop** any `.md` file onto the window
+- ✏️ **Inline editor** — toggle Edit mode for tabs + textarea editing of any text format
+- 🔤 **Encoding-aware open/save** — UTF-8, UTF-16 LE/BE, Latin-1 round-trip with EOL/BOM preserved
+- 💾 **Save As** — for untitled documents
+- 📑 **Session restore** — open tabs reopen on next launch
 
 </td>
 </tr>
@@ -373,7 +377,11 @@ windows/
 
 ## Roadmap
 
-- [ ] Tabs (multiple files per window)
+- [x] Tabs (multiple files per window) — shipped via M3 + Path B delta
+- [x] Inline editor with multi-format support — shipped (textarea + format adapters)
+- [x] Encoding-aware save (UTF-8, UTF-16 LE/BE, Latin-1) — shipped via Path B L1/L2
+- [x] Save As for untitled docs — shipped via Path B L4
+- [x] Session restore — shipped via Path B L5
 - [ ] Per-document custom CSS injection
 - [ ] Linux build (Electrobun supports it; needs a `.desktop` file + xdg-mime registration)
 - [ ] Code-signed/notarized macOS build
