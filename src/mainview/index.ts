@@ -10,6 +10,9 @@ import { createLightbox } from "./lightbox";
 import { renderSafe as renderSafeMermaid, configureMermaidLazy } from "./mermaid-render";
 import { createEditorApp, type EditorAppApi } from "./editor/editor-app";
 import type { EditorTab } from "./editor/editor-state";
+// L5 (Path B delta): cross-launch session restore. Lazy — restore happens
+// when user first enters edit mode, persistence hooks at the same time.
+import { createSession, type SessionApi } from "./editor/session";
 import { parseBibtex, formatInlineCitation, formatBibliographyEntry, type BibEntry } from "./bibtex";
 
 // ============== RPC ==============
@@ -1057,6 +1060,12 @@ window.addEventListener("keydown", (e) => {
 // callbacks open the in-renderer modal and resolve a Promise with the
 // user's choice.
 let editorApp: EditorAppApi | null = null;
+// L5 (Path B delta): session restore is lazy too — bound to editorApp's
+// lifecycle. When ensureEditorApp first creates the app, we restore tabs
+// from session.json and hook persistence on state changes.
+let sessionApi: SessionApi | null = null;
+let sessionRestored = false;
+let sessionSaveDebounce: ReturnType<typeof setTimeout> | null = null;
 
 const confirmModalEl = document.getElementById("confirm-modal") as HTMLElement;
 const confirmTitleEl = document.getElementById("confirm-title") as HTMLElement;
@@ -1200,6 +1209,76 @@ function ensureEditorApp(): EditorAppApi {
 		notify,
 	});
 	editorApp.mount();
+
+	// L5 (Path B delta): one-shot session restore + persistence hookup on the
+	// FIRST ensureEditorApp call. Subsequent calls (idempotent reuse) skip both.
+	if (!sessionRestored) {
+		sessionRestored = true;
+		sessionApi = createSession({
+			loadSession: (params) => electroview.rpc!.request.loadSession(params),
+			saveSession: (params) => electroview.rpc!.request.saveSession(params),
+		});
+
+		// Restore tabs asynchronously — don't block ensureEditorApp's return.
+		// F3 fix: capture initialTabId from any double-click open + reassert
+		// active AFTER the restore loop, since each tab open implicitly sets
+		// active.
+		(async () => {
+			const sessionState = await sessionApi!.load();
+			const app = editorApp!;
+			let initialTabId: string | null = null;
+			// (Double-click open already happened in view mode by the time
+			// edit mode is engaged; if that file is among the session tabs,
+			// it'll be deduplicated by editor-state.open's path-match. We
+			// don't separately re-open it here.)
+
+			for (const t of sessionState.tabs) {
+				if (t.path === null && t.untitledContent !== undefined) {
+					app.state.open(null, t.untitledContent, t.format);
+					continue;
+				}
+				if (t.path) {
+					try {
+						await app.openFile(t.path);
+					} catch {
+						// File no longer exists / permission issue — silently drop
+					}
+				}
+			}
+
+			// Re-assert active. Without this, the active tab would be the
+			// last-restored one (since each open() implicitly activates).
+			if (initialTabId) {
+				app.state.activate(initialTabId);
+			} else if (sessionState.activeTabId) {
+				const list = app.state.allTabs();
+				const sess = sessionState.tabs.find((s) => s.id === sessionState.activeTabId);
+				const match = sess ? list.find((tt) => tt.path === sess.path) : null;
+				if (match) app.state.activate(match.id);
+			}
+		})().catch((err) => {
+			notify(`Session restore failed: ${err instanceof Error ? err.message : String(err)}`, "warn");
+		});
+
+		// Persist on every state change, debounced 300ms.
+		editorApp.state.subscribe(() => {
+			if (sessionSaveDebounce) clearTimeout(sessionSaveDebounce);
+			sessionSaveDebounce = setTimeout(() => {
+				sessionApi?.save(sessionApi.snapshot(editorApp!.state)).catch(() => {});
+			}, 300);
+		});
+
+		// Synchronous-best-effort save on quit. Note: beforeunload Promise
+		// returns are not awaited by the browser, so this is fire-and-forget;
+		// the bun-side writeFileSync call inside the RPC handler completes
+		// fast enough in practice.
+		window.addEventListener("beforeunload", () => {
+			if (sessionApi && editorApp) {
+				sessionApi.save(sessionApi.snapshot(editorApp.state)).catch(() => {});
+			}
+		});
+	}
+
 	return editorApp;
 }
 

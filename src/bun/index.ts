@@ -12,6 +12,8 @@ import type { AppRPC, FilePayload, FolderPayload, TreeNode, RecentEntry, SearchR
 import { append as logAppend, logPath as resolvedLogPath } from "./log";
 // L1/L2 (Path B delta): encoding-aware read + write
 import { readText, writeText } from "./text-io";
+// L5 (Path B delta): cross-launch session restore
+import { createSessionStore } from "./session-store";
 
 // Resolve the typed rpc object that BrowserView.defineRPC<AppRPC>(...) returns,
 // so mainWindow.webview.rpc.send.* is fully typed against AppRPC.webview.messages
@@ -38,6 +40,10 @@ function eulaUserDataDir(): string {
 	return join(Bun.env["XDG_CONFIG_HOME"] || join(PLATFORM_HOME, ".config"), "markdown-viewer");
 }
 const EULA_MARKER = join(eulaUserDataDir(), `eula-accepted-${EULA_VERSION}`);
+
+// L5 (Path B delta): session-store lives next to the EULA marker so it
+// follows the same OS-canonical user-data dir conventions.
+const sessionStore = createSessionStore(eulaUserDataDir());
 
 let mainWindow: BrowserWindow<AppBunRPC> | null = null;
 let pendingInitialFile: FilePayload | null = null;
@@ -762,6 +768,14 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 				// unsafe-path / too-large / conflict shouldn't reach here on a
 				// fresh-write path. Fold into io-failure with a descriptive message.
 				return { ok: false, error: "io-failure", message: `save-as failed: ${result.error}` } as const;
+			},
+			// L5 (Path B delta): cross-launch session restore. loadSession runs
+			// once at boot; saveSession runs debounced (300ms) on tab/state
+			// changes and synchronously on beforeunload.
+			loadSession: async () => sessionStore.load(),
+			saveSession: async ({ state }) => {
+				sessionStore.save(state);
+				return { ok: true };
 			},
 			// M3.S7: format detection (extension + content sniff)
 			detectFormat: async ({ path }) => detectDocumentFormat(urlToPath(path)),
