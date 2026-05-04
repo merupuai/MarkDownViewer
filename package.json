@@ -22,6 +22,7 @@
     "audit": "bun audit --audit-level=high",
     "typecheck": "tsc --noEmit",
     "test": "bun test tests/unit/",
+    "test:bundle": "bun run build:release && bun test tests/unit/bundle-size.test.ts",
     "test:e2e": "playwright test --config=e2e/playwright.config.ts",
     "test:e2e:install": "playwright install chromium",
     "design:check": "bun run scripts/design-token-check.ts"
