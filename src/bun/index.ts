@@ -718,6 +718,51 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 				}
 				return result;
 			},
+			// L4 (Path B delta): Save As for untitled documents. Closes the
+			// "Use \"Save As\" for untitled documents (not yet wired in M3.S2 — defer)"
+			// TODO at editor-app.ts. Opens a folder picker, sanitizes the
+			// filename, then funnels through saveDocumentFile (same atomic +
+			// lossy code path).
+			saveAsDialog: async ({ defaultName, content, encoding, eol, bom, allowLossy }) => {
+				const folder = await Utils.openFileDialog({
+					startingFolder: PLATFORM_HOME,
+					canChooseFiles: false,
+					canChooseDirectory: true,
+					allowsMultipleSelection: false,
+				});
+				const dir = Array.isArray(folder) ? folder[0] : folder;
+				if (!dir) return { ok: false, error: "user-cancelled" } as const;
+
+				// Sanitize filename — no path separators, no NUL, length cap at 255.
+				const safeName = (defaultName || "untitled.txt")
+					.replace(/[/\\\0]/g, "_")
+					.slice(0, 255);
+				const target = join(dir, safeName);
+
+				const result = await saveDocumentFile(target, content, undefined, { encoding, eol, bom, allowLossy });
+				if (result.ok) {
+					pushRecent(target);
+					dbg("[mv] saveAsDialog OK", target, "bytes=", result.bytes);
+					return {
+						ok: true,
+						path: target,
+						savedAt: result.savedAt,
+						mtimeMs: result.mtimeMs,
+						bytes: result.bytes,
+						...(result.lossyChars ? { lossyChars: result.lossyChars } : {}),
+					} as const;
+				}
+				dbg("[mv] saveAsDialog FAIL", target, "error=", result.error);
+				if (result.error === "lossy") {
+					return { ok: false, error: "lossy", lossy: result.lossy } as const;
+				}
+				if (result.error === "io-failure") {
+					return { ok: false, error: "io-failure", message: result.message } as const;
+				}
+				// unsafe-path / too-large / conflict shouldn't reach here on a
+				// fresh-write path. Fold into io-failure with a descriptive message.
+				return { ok: false, error: "io-failure", message: `save-as failed: ${result.error}` } as const;
+			},
 			// M3.S7: format detection (extension + content sniff)
 			detectFormat: async ({ path }) => detectDocumentFormat(urlToPath(path)),
 			// M4.S10 (closes ENH-022): expose references.bib next to the
