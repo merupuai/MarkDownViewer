@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- Container Squircle Aurora Gradient -->
+    <linearGradient id="gradContainer" x1="8%" y1="0%" x2="92%" y2="100%">
+      <stop offset="0%" stop-color="#0F766E" />
+      <stop offset="34%" stop-color="#2563EB" />
+      <stop offset="68%" stop-color="#A21CAF" />
+      <stop offset="100%" stop-color="#E11D48" />
+    </linearGradient>
+
+    <!-- Mark Iridescent Gradient -->
+    <linearGradient id="gradMark" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="55%" stop-color="#E8E2FF" />
+      <stop offset="100%" stop-color="#D6F4F0" />
+    </linearGradient>
+
+    <!-- Top Highlight Mask Equivalent (Fades out at 40%) -->
+    <linearGradient id="gradHighlight" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.16" />
+      <stop offset="40%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Bottom Shadow Mask Equivalent (Fades in at 75%) -->
+    <linearGradient id="gradShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="75%" stop-color="#0F172A" stop-opacity="0" />
+      <stop offset="100%" stop-color="#0F172A" stop-opacity="0.28" />
+    </linearGradient>
+  </defs>
+
+  <!-- Squircle Base -->
+  <rect x="0" y="0" width="1024" height="1024" rx="232" ry="232" fill="url(#gradContainer)" />
+
+  <!-- Inner Top Highlight (1.5px stroke, masked via gradient) -->
+  <rect x="0.75" y="0.75" width="1022.5" height="1022.5" rx="231.25" ry="231.25" fill="none" stroke="url(#gradHighlight)" stroke-width="1.5" />
+
+  <!-- Inner Bottom Shadow (2px stroke, masked via gradient) -->
+  <rect x="1" y="1" width="1022" height="1022" rx="231" ry="231" fill="none" stroke="url(#gradShadow)" stroke-width="2" />
+
+  <!-- The M↓ Mark (Shifted optically up by 24 units) -->
+  <g transform="translate(0, -24)">
+    <!-- The M -->
+    <path d="M 240 700 L 240 280 L 512 580 L 784 280 L 784 700"
+          fill="none" stroke="url(#gradMark)" stroke-width="92"
+          stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="10" />
+
+    <!-- The Descender Chevron -->
+    <path d="M 408 760 L 512 880 L 616 760"
+          fill="none" stroke="url(#gradMark)" stroke-width="92"
+          stroke-linecap="square" stroke-linejoin="miter" stroke-miterlimit="10" />
+  </g>
+</svg>
