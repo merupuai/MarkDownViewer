@@ -3,12 +3,41 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<!-- M1.S1 (closes SEC-007 / FR-06 / NFR-04): connect-src 'none' blocks
+	     all network egress; frame-src/object-src/base-uri 'none' close iframe/
+	     object/base-tag bypasses; 'unsafe-inline' is required because mermaid
+	     + KaTeX emit per-render <style> and the markdown pipeline emits inline
+	     style attributes that DOMPurify has already filtered for url()/@import
+	     (see M1.S2). -->
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none';">
 	<title>Markdown Viewer</title>
+	<link rel="icon" type="image/svg+xml" href="brand/MarkDownViewerLogo.svg">
+	<link rel="icon" type="image/png" sizes="32x32" href="brand/icon-32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="brand/icon-16.png">
+	<link rel="apple-touch-icon" sizes="180x180" href="brand/icon-180.png">
 	<link rel="stylesheet" href="katex/katex.min.css">
 	<link rel="stylesheet" href="index.css">
 </head>
 <body class="theme-auto">
-	<div class="titlebar-spacer" aria-hidden="true"></div>
+	<header class="titlebar" id="titlebar" data-platform="unknown" aria-label="Window titlebar">
+		<div class="titlebar-brand">
+			<img src="brand/MarkDownViewerLogo.svg" alt="" class="titlebar-icon" />
+			<span class="titlebar-title" id="titlebar-title">Markdown Viewer</span>
+		</div>
+		<div class="titlebar-drag" aria-hidden="true"></div>
+		<div class="titlebar-controls" id="titlebar-controls" hidden>
+			<button class="tb-btn tb-min" id="win-min" type="button" title="Minimize" aria-label="Minimize">
+				<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 5h10" stroke="currentColor" stroke-width="1" /></svg>
+			</button>
+			<button class="tb-btn tb-max" id="win-max" type="button" title="Maximize" aria-label="Maximize">
+				<svg class="tb-ico-max" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+				<svg class="tb-ico-restore" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="0.5" y="2.5" width="7" height="7" fill="none" stroke="currentColor" stroke-width="1"/><path d="M2.5 2.5V0.5h7v7h-2" fill="none" stroke="currentColor" stroke-width="1"/></svg>
+			</button>
+			<button class="tb-btn tb-close" id="win-close" type="button" title="Close" aria-label="Close">
+				<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1l8 8M9 1l-8 8" stroke="currentColor" stroke-width="1"/></svg>
+			</button>
+		</div>
+	</header>
 
 	<div class="app">
 		<aside class="sidebar" id="sidebar">
@@ -63,19 +92,21 @@
 
 			<div class="tab-pane" data-pane="recent" hidden>
 				<div class="recent-tools">
-					<span class="sidebar-label" style="padding:0 8px;">Recent files</span>
+					<span class="sidebar-label">Recent files</span>
 					<button id="clear-recent" class="btn btn-ghost btn-small" title="Clear recent">Clear</button>
 				</div>
 				<div id="recent-list" class="recent-list"></div>
 			</div>
 
 			<div class="tab-pane" data-pane="outline" hidden>
-				<div class="sidebar-label" style="padding:8px 12px 4px;">On this page</div>
+				<div class="sidebar-label sidebar-label-header">On this page</div>
 				<nav id="toc" class="toc"></nav>
 			</div>
 		</aside>
 
-		<div class="resize-handle" id="resize-handle" aria-hidden="true"></div>
+		<!-- M1.S8: keyboard-reachable resize handle. role="separator" announces
+		     it as a sidebar-width separator; aria-orientation declares the axis. -->
+		<div class="resize-handle" id="resize-handle" role="separator" aria-orientation="vertical" aria-label="Resize sidebar" tabindex="0"></div>
 
 		<main class="content" id="content-pane">
 			<div id="dropzone" class="dropzone" aria-hidden="true">
@@ -85,9 +116,9 @@
 			<div id="find-bar" class="find-bar" hidden>
 				<input id="find-input" class="find-input" placeholder="Find in document…" />
 				<span id="find-count" class="find-count"></span>
-				<button id="find-prev" class="btn btn-icon btn-small" title="Previous (⇧↩)">↑</button>
-				<button id="find-next" class="btn btn-icon btn-small" title="Next (↩)">↓</button>
-				<button id="find-close" class="btn btn-icon btn-small" title="Close (Esc)">✕</button>
+				<button id="find-prev" class="btn btn-icon btn-small" title="Previous (⇧↩)" aria-label="Previous match">↑</button>
+				<button id="find-next" class="btn btn-icon btn-small" title="Next (↩)" aria-label="Next match">↓</button>
+				<button id="find-close" class="btn btn-icon btn-small" title="Close (Esc)" aria-label="Close find bar">✕</button>
 			</div>
 
 			<article id="content" class="markdown-body welcome">
@@ -100,7 +131,11 @@
 						<div class="feature"><div class="feature-title">Find &amp; Search</div><div class="feature-desc"><kbd>⌘F</kbd> in doc, <kbd>⌘⇧F</kbd> across folder</div></div>
 						<div class="feature"><div class="feature-title">Live + Recent</div><div class="feature-desc">Auto-reload on save, last opened files remembered</div></div>
 					</div>
-					<div id="welcome-recent" class="welcome-recent" hidden>
+					<div class="welcome-cobolt" aria-label="Copyright MFTLabs, Powered by CoBolt">
+					<span class="welcome-cobolt-text">© MFTLabs · Powered by</span>
+					<img src="brand/CoBolt_Name_Logo.png" alt="CoBolt" class="welcome-cobolt-logo" />
+				</div>
+				<div id="welcome-recent" class="welcome-recent" hidden>
 						<div class="welcome-recent-title">Recent</div>
 						<div id="welcome-recent-list"></div>
 					</div>
@@ -121,6 +156,10 @@
 		<span id="status-path" class="status-path"></span>
 		<span id="status-stats" class="status-stats"></span>
 		<span id="status-zoom" class="status-zoom">100%</span>
+		<span class="status-cobolt" aria-label="Powered by CoBolt">
+			<span class="status-cobolt-text">© MFTLabs · Powered by</span>
+			<img src="brand/CoBolt_Name_Logo.png" alt="CoBolt" class="status-cobolt-logo" />
+		</span>
 	</div>
 
 	<script src="index.js"></script>

@@ -1,17 +1,22 @@
 <div align="center">
 
+<img src="assets/brand/MarkDownViewerLogo.svg" width="120" height="120" alt="Markdown Viewer logo">
+
 # Markdown Viewer
 
 ### A native desktop markdown viewer with first-class Mermaid + C4 diagrams, KaTeX math, GitHub-style alerts, and full file/folder navigation.
 
+<sub>© <strong>MFTLabs</strong> · Developed by <strong>CoBolt</strong> · <img src="assets/CoBolt_Name_Logo.png" alt="CoBolt" height="18" valign="middle" /></sub>
+
 [![Platform: macOS](https://img.shields.io/badge/macOS-13%2B-000?style=for-the-badge&logo=apple&logoColor=white)](#install--macos)
 [![Platform: Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=for-the-badge&logo=windows&logoColor=white)](#install--windows)
 [![Built on Electrobun](https://img.shields.io/badge/Electrobun-1.17-7c3aed?style=for-the-badge&logo=bun&logoColor=white)](https://github.com/blackboardsh/electrobun)
-[![License: MIT](https://img.shields.io/badge/license-MIT-22c55e?style=for-the-badge)](LICENSE)
+[![License: MIT (Non-Resale)](https://img.shields.io/badge/license-MIT--NonResale-f59e0b?style=for-the-badge)](LICENSE)
 
+[![Free for personal & internal use](https://img.shields.io/badge/free_for-personal_%26_internal_use-22c55e?style=flat-square)](#license)
+[![Resale prohibited](https://img.shields.io/badge/resale-prohibited-cf222e?style=flat-square)](#license)
 [![Bundle: ~20MB macOS](https://img.shields.io/badge/macOS_bundle-~20_MB-1f6feb?style=flat-square)](#install--macos)
 [![Bundle: ~30MB Windows](https://img.shields.io/badge/Windows_bundle-~30_MB-1f6feb?style=flat-square)](#install--windows)
-[![100% open source](https://img.shields.io/badge/100%25-open_source-22c55e?style=flat-square&logo=opensourceinitiative&logoColor=white)](#license)
 [![No telemetry](https://img.shields.io/badge/telemetry-none-22c55e?style=flat-square&logo=ghostery&logoColor=white)](#license)
 
 **Double-click any `.md` file. It just opens. With diagrams. With math. With everything.**
@@ -124,6 +129,8 @@ That's it. The script:
 6. Registers with LaunchServices
 7. Sets it as your default `.md` handler
 
+> **First-run license prompt** — the very first launch shows a native macOS dialog asking you to accept the **MIT (Non-Resale Variant)** license. Acceptance is persisted at `~/Library/Application Support/com.local.markdownviewer/eula-accepted-v1` so you only see it once. You can re-open the summary any time via **Help → License…**.
+
 Then double-click any `.md` file in Finder, or:
 
 ```bash
@@ -191,6 +198,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\build-windows.ps1
 ```
 
 Output: `build\windows-installer\MarkdownViewerSetup.exe` — a single setup `.exe` that:
+- **Shows a license-acceptance screen** ("I accept the agreement" / "I do not accept") — required to proceed; this is how the no-resale clause is contractually accepted at install time
+- Shows a plain-language **license notice** ahead of the legal text (`windows/license-notice.txt`)
+- Bundles the full `LICENSE` into the install directory (`LICENSE.txt`) and adds a Start Menu shortcut to it
+- Sets Add/Remove Programs publisher to **MFTLabs**, copyright `(c) 2026 MFTLabs. Developed by CoBolt. Resale prohibited.`
 - Installs to `%LOCALAPPDATA%\Programs\MarkdownViewer` (no admin)
 - Has a checkbox "Associate Markdown files with Markdown Viewer" (default: on)
 - Has a checkbox "Open the Default Apps page after install" (default: off)
@@ -321,6 +332,8 @@ scripts/
 
 windows/
 ├── MarkdownViewerSetup.iss     Inno Setup script for proper installer
+├── license-notice.txt          Plain-language license summary shown
+│                               before the formal LICENSE acceptance page
 ├── register-file-types.reg     Manual per-user file-type registration
 └── unregister-file-types.reg   Cleanup
 
@@ -367,14 +380,53 @@ windows/
 - [ ] Auto-updater channel
 - [ ] PDF export with internal anchor links preserved (currently flattens)
 
+## Author & Copyright
+
+| Role | Party |
+|---|---|
+| **Copyright holder** | **MFTLabs** (© 2026) |
+| **Developer** | **CoBolt** |
+| **Contact for resale licensing** | MFTLabs |
+
+The full copyright and license terms live in [`LICENSE`](LICENSE).
+
 ## License
 
-MIT for this project. Each dependency keeps its own license — see the [Tech stack](#tech-stack) table.
+This project is distributed under the **MIT License (Non-Resale Variant)** — an MIT-derived license that is free for end users but withholds the right to resell. In summary:
+
+### ✅ You MAY (free of charge)
+- **Use** it for personal, educational, internal business, or non-commercial open-source purposes
+- **Copy, modify, and redistribute** it freely
+- **Use it inside your own free product** (as long as attribution stays intact)
+- **Charge for unrelated services** (consulting, custom integration, hosting infrastructure where this software is provided free to the end user)
+
+### ❌ You MAY NOT (without prior written permission from MFTLabs)
+- **Sell** the Software as a paid product, paid download, or paid subscription
+- **Resell or sublicense** it for a fee
+- **Rent or lease** the Software
+- **Bundle it inside a paid commercial product** where this software constitutes a meaningful portion of the value delivered
+- **Charge a license, activation, or hosting fee whose primary purpose is to monetize the Software itself**
+
+### Attribution requirement
+The copyright notice (`Copyright (c) 2026 MFTLabs`) and the developer credit (`Developed by CoBolt`) must remain visible in any user-facing distribution — About dialogs, footers, splash screens, or documentation.
+
+### Third-party dependencies
+Each bundled dependency retains its own license — see the [Tech stack](#tech-stack) table. The non-resale clause above applies only to **this** project's source and build artifacts, not to the upstream dependencies.
+
+> **Note:** This is a custom MIT-derived license, not OSI-approved standard MIT. Standard MIT explicitly permits resale; this variant does not. Treat it as **source-available, free-to-use, no-resale**.
+
+For commercial resale licensing inquiries, contact **MFTLabs**.
 
 ---
 
 <div align="center">
 
 Made with ♥ for everyone who's tired of seeing raw Mermaid in Notepad.
+
+<br/>
+
+<sub>© 2026 MFTLabs · Powered by</sub>
+<br/>
+<img src="assets/CoBolt_Name_Logo.png" alt="CoBolt" height="32" />
 
 </div>

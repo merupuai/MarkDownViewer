@@ -47,3 +47,7 @@ build/tools/
 .env
 .env.local
 *.pem
+
+# CoBolt user infrastructure config (contains secrets)
+.env.cobolt
+.env.mcp

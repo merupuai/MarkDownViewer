@@ -99,6 +99,20 @@ if (-not (Test-Path $exePath)) {
 }
 Write-Host "Installed: $exePath"
 
+# 4b) Copy branded AppIcon.ico alongside the .exe so file-type registration,
+#     Start Menu shortcut, and Explorer all show the project's icon. Falls
+#     back to the .exe-embedded icon if AppIcon.ico has not been generated.
+$brandIcon = Join-Path $ProjectRoot "assets\brand\AppIcon.ico"
+$installedIcon = Join-Path $InstallDir "AppIcon.ico"
+if (Test-Path $brandIcon) {
+    Copy-Item -Force $brandIcon $installedIcon
+    $iconRef = "`"$installedIcon`""        # full-path icon, no resource index
+    Write-Host "Bundled icon: $installedIcon"
+} else {
+    $iconRef = "`"$exePath`",0"            # fall back to embedded resource 0
+    Write-Host "No assets\brand\AppIcon.ico found; using embedded .exe icon"
+}
+
 # 5) Register file associations (per-user, no admin)
 Write-Host "==> Registering file associations" -ForegroundColor Cyan
 
@@ -108,7 +122,7 @@ Set-ItemProperty -Path $progIdKey -Name "(Default)" -Value "Markdown Document"
 
 $iconKey = "$progIdKey\DefaultIcon"
 New-Item -Path $iconKey -Force | Out-Null
-Set-ItemProperty -Path $iconKey -Name "(Default)" -Value "`"$exePath`",0"
+Set-ItemProperty -Path $iconKey -Name "(Default)" -Value $iconRef
 
 $cmdKey = "$progIdKey\shell\open\command"
 New-Item -Path $cmdKey -Force | Out-Null
@@ -150,7 +164,13 @@ $wsh = New-Object -ComObject WScript.Shell
 $shortcut = $wsh.CreateShortcut($startMenu)
 $shortcut.TargetPath  = $exePath
 $shortcut.WorkingDirectory = $InstallDir
-$shortcut.IconLocation = "$exePath,0"
+# Prefer the bundled .ico (multi-resolution, sharp at every size); the .lnk
+# IconLocation format is "<path>,<index>". For an .ico file the index is 0.
+if (Test-Path $installedIcon) {
+    $shortcut.IconLocation = "$installedIcon,0"
+} else {
+    $shortcut.IconLocation = "$exePath,0"
+}
 $shortcut.Save()
 Write-Host "Created Start Menu shortcut: $startMenu"
 

@@ -16,17 +16,31 @@
 
 #define MyAppName        "Markdown Viewer"
 #define MyAppVersion     "1.0.0"
-#define MyAppPublisher   "Local"
+#define MyAppPublisher   "MFTLabs"
+#define MyAppDeveloper   "CoBolt"
+#define MyAppPublisherURL "https://mftlabs.io"
+#define MyAppCopyright   "Copyright (c) 2026 MFTLabs. Developed by CoBolt. Resale prohibited."
 #define MyAppExeName     "Markdown Viewer.exe"
 #define MyAppId          "com.local.markdownviewer"
 #define MyAppProgId      "MarkdownViewer.MarkdownDocument"
 #define MyAppSourceDir   "..\build\stable-win-x64"
+#define MyAppIcon        "..\assets\brand\AppIcon.ico"
+#define MyAppLicenseFile "..\LICENSE"
 
 [Setup]
 AppId={#MyAppId}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
+AppVerName={#MyAppName} {#MyAppVersion}
 AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppPublisherURL}
+AppSupportURL={#MyAppPublisherURL}
+AppCopyright={#MyAppCopyright}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoCopyright={#MyAppCopyright}
+VersionInfoDescription={#MyAppName} — Developed by {#MyAppDeveloper}
+VersionInfoProductName={#MyAppName}
+VersionInfoVersion={#MyAppVersion}
 DefaultDirName={localappdata}\Programs\MarkdownViewer
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
@@ -40,7 +54,24 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 ChangesAssociations=yes
-UninstallDisplayIcon={app}\{#MyAppExeName}
+SetupIconFile={#MyAppIcon}
+UninstallDisplayIcon={app}\AppIcon.ico
+
+; ---------------------------------------------------------------------------
+; LICENSE ACCEPTANCE (click-through EULA)
+;
+; Inno Setup will render LicenseFile on a dedicated wizard page with
+; "I accept the agreement" / "I do not accept the agreement" radio buttons.
+; The Next button is disabled until the user explicitly accepts. This gives
+; us contractual click-through acceptance of the MIT (Non-Resale Variant)
+; license — required to make the no-resale clause enforceable against
+; downstream redistributors.
+;
+; InfoBeforeFile is an additional plain-info screen highlighting the
+; non-resale restriction in plain language before the legal text.
+; ---------------------------------------------------------------------------
+LicenseFile={#MyAppLicenseFile}
+InfoBeforeFile=license-notice.txt
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -52,15 +83,22 @@ Name: "setdefault";    Description: "&Open the Default Apps page after install s
 
 [Files]
 Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion createallsubdirs
+; Branded icon — used by Start Menu shortcuts, Add/Remove Programs, and the
+; .md file-type DefaultIcon below. Placed alongside the .exe in {app}.
+Source: "{#MyAppIcon}"; DestDir: "{app}"; DestName: "AppIcon.ico"; Flags: ignoreversion
+; Bundle the LICENSE alongside the executable so users can re-read the
+; no-resale terms after install. Surfaced via a Start Menu shortcut below.
+Source: "{#MyAppLicenseFile}"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
-Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\AppIcon.ico"
+Name: "{group}\License (MFTLabs · Non-Resale)"; Filename: "{app}\LICENSE.txt"
+Name: "{userdesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\AppIcon.ico"; Tasks: desktopicon
 
 [Registry]
 ; ProgID
 Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}";              ValueType: string; ValueName: "";                ValueData: "Markdown Document"; Flags: uninsdeletekey; Tasks: associatemd
-Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\DefaultIcon";  ValueType: string; ValueName: "";                ValueData: """{app}\{#MyAppExeName}"",0"; Tasks: associatemd
+Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\DefaultIcon";  ValueType: string; ValueName: "";                ValueData: """{app}\AppIcon.ico"""; Tasks: associatemd
 Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\shell\open";   ValueType: string; ValueName: "";                ValueData: "Open"; Tasks: associatemd
 Root: HKCU; Subkey: "Software\Classes\{#MyAppProgId}\shell\open\command"; ValueType: string; ValueName: "";          ValueData: """{app}\{#MyAppExeName}"" ""%1"""; Tasks: associatemd
 
@@ -84,7 +122,7 @@ Root: HKCU; Subkey: "Software\Classes\.mdx\OpenWithProgids";      ValueType: non
 
 ; Default Apps integration
 Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities"; ValueType: string; ValueName: "ApplicationName";        ValueData: "{#MyAppName}"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Native markdown viewer with Mermaid/C4 diagrams"
+Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities"; ValueType: string; ValueName: "ApplicationDescription"; ValueData: "Native markdown viewer with Mermaid/C4 diagrams — © MFTLabs, developed by CoBolt"
 Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities\FileAssociations"; ValueType: string; ValueName: ".md";       ValueData: "{#MyAppProgId}"
 Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities\FileAssociations"; ValueType: string; ValueName: ".markdown"; ValueData: "{#MyAppProgId}"
 Root: HKCU; Subkey: "Software\{#MyAppName}\Capabilities\FileAssociations"; ValueType: string; ValueName: ".mdown";    ValueData: "{#MyAppProgId}"
@@ -102,9 +140,36 @@ Type: filesandordirs; Name: "{localappdata}\com.local.markdownviewer"
 
 [Code]
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  EulaDir:  String;
+  EulaFile: String;
+  EulaText: AnsiString;
 begin
   if CurStep = ssPostInstall then begin
     // Notify shell of association changes
     SendBroadcastMessage(WM_SETTINGCHANGE, 0, 0);
+
+    // Pre-populate the runtime EULA marker so the app's first-run license
+    // dialog is skipped for installer-based installs (the user already
+    // accepted on the License Agreement wizard page above).
+    // Path must match eulaUserDataDir() / EULA_VERSION in src/bun/index.ts.
+    EulaDir  := ExpandConstant('{userappdata}\MarkdownViewer');
+    EulaFile := EulaDir + '\eula-accepted-v1';
+    if not DirExists(EulaDir) then ForceDirectories(EulaDir);
+    EulaText := AnsiString(GetDateTimeString('yyyy-mm-dd hh:nn:ss', '-', ':')
+                + ' (accepted via Inno Setup installer)');
+    SaveStringToFile(EulaFile, EulaText, False);
+  end;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  EulaFile: String;
+begin
+  if CurUninstallStep = usPostUninstall then begin
+    // Remove the EULA marker on uninstall so a future reinstall re-prompts.
+    EulaFile := ExpandConstant('{userappdata}\MarkdownViewer\eula-accepted-v1');
+    if FileExists(EulaFile) then DeleteFile(EulaFile);
+    RemoveDir(ExpandConstant('{userappdata}\MarkdownViewer'));
   end;
 end;

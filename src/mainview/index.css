@@ -68,6 +68,23 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 
+/* WCAG 2.4.7 Focus Visible — universal accent-colored ring on every focusable element */
+:focus { outline: none; }
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: 3px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+}
+
 html, body {
 	margin: 0; padding: 0; height: 100%;
 	background: var(--bg); color: var(--text);
@@ -76,13 +93,65 @@ html, body {
 	overflow: hidden;
 }
 
-.titlebar-spacer {
+/* ============== Titlebar ============== */
+/* Custom titlebar — owns the top 28 px on every platform.
+   • macOS: shows brand + drag area only; native traffic-light buttons render
+     above it because the window uses titleBarStyle: "hiddenInset".
+   • Windows / Linux: shows brand + drag area + min/max/close buttons that
+     proxy to Electrobun's BrowserWindow API via RPC.
+   The drag region uses -webkit-app-region: drag; the buttons opt out with
+   no-drag so click events reach them. */
+.titlebar {
 	height: var(--titlebar-h);
-	-webkit-app-region: drag;
-	background: var(--bg);
-	border-bottom: 1px solid var(--border-soft);
 	position: fixed; top: 0; left: 0; right: 0;
 	z-index: 50;
+	display: flex;
+	align-items: center;
+	background: var(--bg);
+	border-bottom: 1px solid var(--border-soft);
+	-webkit-app-region: drag;
+	user-select: none;
+}
+.titlebar-brand {
+	display: flex; align-items: center; gap: 6px;
+	padding: 0 10px;
+	font-size: 12px; font-weight: 500;
+	color: var(--text);
+	-webkit-app-region: drag;
+	flex-shrink: 0;
+}
+.titlebar-icon { width: 14px; height: 14px; }
+.titlebar-title {
+	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+	max-width: 60vw;
+}
+.titlebar-drag { flex: 1 1 auto; -webkit-app-region: drag; }
+.titlebar-controls {
+	display: flex;
+	-webkit-app-region: no-drag;
+}
+.tb-btn {
+	display: inline-flex; align-items: center; justify-content: center;
+	width: 46px; height: var(--titlebar-h);
+	background: transparent; border: 0; padding: 0; margin: 0;
+	color: var(--text); cursor: pointer;
+	-webkit-app-region: no-drag;
+}
+.tb-btn:hover { background: rgba(0,0,0,0.06); }
+body[data-theme="dark"] .tb-btn:hover { background: rgba(255,255,255,0.08); }
+.tb-close:hover { background: #e81123; color: #fff; }
+.tb-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; }
+/* Maximize / restore icon swap, driven by [data-maximized] on .titlebar */
+.tb-ico-restore { display: none; }
+.titlebar[data-maximized="true"] .tb-ico-max { display: none; }
+.titlebar[data-maximized="true"] .tb-ico-restore { display: inline; }
+/* macOS: hide custom controls (use native traffic lights) and reserve a
+   drag-only zone on the left for them. */
+.titlebar[data-platform="darwin"] .titlebar-controls { display: none; }
+.titlebar[data-platform="darwin"] .titlebar-brand { padding-left: 80px; }
+/* Narrow windows: drop the brand text so the buttons always fit. */
+@media (max-width: 480px) {
+	.titlebar-title { display: none; }
 }
 
 .app {
@@ -162,6 +231,8 @@ html, body {
 	align-items: center;
 	gap: 6px;
 }
+.sidebar-label-header { padding: 8px 12px 4px; }
+.recent-tools .sidebar-label { padding: 0 8px; }
 
 .sidebar-section { padding: 8px 0; }
 .sidebar-section-tree { padding: 0; flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -384,6 +455,21 @@ body[data-theme="dark"] .btn-icon .icon-sun { display: none; }
 .feature-title { font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .feature-desc { color: var(--text-muted); font-size: 12px; line-height: 1.4; }
 
+.welcome-cobolt {
+	margin-top: 32px;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	color: var(--text-faint);
+	font-size: 12px;
+}
+.welcome-cobolt-logo { height: 22px; width: auto; opacity: 0.9; }
+.theme-dark .welcome-cobolt-logo,
+body[data-theme="dark"] .welcome-cobolt-logo { filter: brightness(0) invert(1); opacity: 0.85; }
+@media (prefers-color-scheme: dark) {
+	body.theme-auto .welcome-cobolt-logo { filter: brightness(0) invert(1); opacity: 0.85; }
+}
 .welcome-recent { margin-top: 28px; text-align: left; }
 .welcome-recent-title { font-size: 11px; font-weight: 600; text-transform: uppercase; color: var(--text-faint); letter-spacing: 0.05em; margin-bottom: 8px; }
 .welcome-recent .recent-item { background: var(--bg-elev); margin-bottom: 4px; }
@@ -394,6 +480,7 @@ body[data-theme="dark"] .btn-icon .icon-sun { display: none; }
 	margin-top: 1.6em; margin-bottom: 0.6em;
 	font-weight: 600; line-height: 1.3;
 	scroll-margin-top: 20px;
+	color: var(--text);
 }
 .markdown-body h1 { font-size: 2em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border-soft); margin-top: 0; }
 .markdown-body h2 { font-size: 1.5em; padding-bottom: 0.3em; border-bottom: 1px solid var(--border-soft); }
@@ -401,6 +488,13 @@ body[data-theme="dark"] .btn-icon .icon-sun { display: none; }
 .markdown-body h4 { font-size: 1.05em; }
 .markdown-body h5 { font-size: 0.95em; }
 .markdown-body h6 { font-size: 0.85em; color: var(--text-muted); }
+
+.markdown-body h1 > a:not(.header-anchor),
+.markdown-body h2 > a:not(.header-anchor),
+.markdown-body h3 > a:not(.header-anchor),
+.markdown-body h4 > a:not(.header-anchor),
+.markdown-body h5 > a:not(.header-anchor),
+.markdown-body h6 > a:not(.header-anchor) { color: inherit; }
 
 .markdown-body p { margin: 0 0 1em; }
 .markdown-body a { color: var(--accent); text-decoration: none; }
@@ -474,10 +568,11 @@ body[data-theme="dark"] .btn-icon .icon-sun { display: none; }
 .markdown-body .footnotes { font-size: 0.85em; color: var(--text-muted); border-top: 1px solid var(--border-soft); margin-top: 32px; padding-top: 16px; }
 .markdown-body .footnote-backref { text-decoration: none; }
 
-.markdown-body .header-anchor { color: var(--text-faint); opacity: 0; margin-left: 0.4em; font-weight: normal; text-decoration: none; }
+.markdown-body .header-anchor { color: var(--text-muted); opacity: 0; margin-left: 0.4em; font-weight: normal; text-decoration: none; transition: opacity 0.12s; }
 .markdown-body h1:hover .header-anchor, .markdown-body h2:hover .header-anchor,
 .markdown-body h3:hover .header-anchor, .markdown-body h4:hover .header-anchor,
 .markdown-body h5:hover .header-anchor, .markdown-body h6:hover .header-anchor { opacity: 1; }
+.markdown-body .header-anchor:focus-visible { opacity: 1; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 
 /* Find highlight */
 .markdown-body mark[data-find] {
@@ -710,6 +805,27 @@ body[data-theme="dark"] .btn-icon .icon-sun { display: none; }
 .status-path { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status-stats { color: var(--text-faint); flex-shrink: 0; }
 .status-zoom { flex-shrink: 0; }
+.status-cobolt {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	flex-shrink: 0;
+	padding-left: 8px;
+	border-left: 1px solid var(--border-soft);
+	color: var(--text-faint);
+}
+.status-cobolt-text { font-size: 10px; letter-spacing: 0.02em; }
+.status-cobolt-logo {
+	height: 14px;
+	width: auto;
+	display: block;
+	opacity: 0.85;
+}
+.theme-dark .status-cobolt-logo,
+body[data-theme="dark"] .status-cobolt-logo { filter: brightness(0) invert(1); opacity: 0.75; }
+@media (prefers-color-scheme: dark) {
+	body.theme-auto .status-cobolt-logo { filter: brightness(0) invert(1); opacity: 0.75; }
+}
 
 /* ============== highlight.js GitHub theme ============== */
 .hljs { color: var(--text); background: transparent; }
@@ -749,9 +865,60 @@ body[data-theme="dark"] .hljs-symbol { color: #ffa657; }
 	body.theme-auto .hljs-symbol { color: #ffa657; }
 }
 
+/* ============== WCAG 2.2 AA — User-preference media queries ============== */
+
+/* Respect users who request reduced motion (vestibular disorders, motion sensitivity) */
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+}
+
+/* Windows High Contrast Mode / forced-colors — use system palette so content survives forced rendering */
+@media (forced-colors: active) {
+	.markdown-body h1, .markdown-body h2, .markdown-body h3,
+	.markdown-body h4, .markdown-body h5, .markdown-body h6 { color: CanvasText; }
+	.markdown-body p, .markdown-body li, .markdown-body blockquote { color: CanvasText; }
+	.markdown-body a { color: LinkText; }
+	.markdown-body a:visited { color: VisitedText; }
+	.markdown-body .header-anchor { color: LinkText; opacity: 1; }
+	.markdown-body hr { background: CanvasText; }
+	.markdown-body h1, .markdown-body h2 { border-bottom-color: CanvasText; }
+	.btn, .tab-btn, button { border: 1px solid ButtonBorder; color: ButtonText; }
+	.btn-primary { background: ButtonFace; color: ButtonText; }
+	:focus-visible { outline: 2px solid Highlight; outline-offset: 2px; }
+}
+
+/* Users requesting more contrast (System-level "Increase Contrast" / Windows "More contrast" theme) */
+@media (prefers-contrast: more) {
+	:root {
+		--text-muted: #3a4048;
+		--text-faint: #4d5560;
+		--border: #6e7681;
+		--border-soft: #8b949e;
+	}
+	.theme-dark, body[data-theme="dark"] {
+		--text-muted: #d0d8e0;
+		--text-faint: #b5bcc4;
+		--border: #6e7681;
+		--border-soft: #484f58;
+	}
+}
+@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
+	body.theme-auto {
+		--text-muted: #d0d8e0;
+		--text-faint: #b5bcc4;
+		--border: #6e7681;
+		--border-soft: #484f58;
+	}
+}
+
 /* Print styles */
 @media print {
-	.titlebar-spacer, .sidebar, .resize-handle, .statusbar, .find-bar, .lightbox, .code-block-tools { display: none !important; }
+	.titlebar, .sidebar, .resize-handle, .statusbar, .find-bar, .lightbox, .code-block-tools { display: none !important; }
 	.app { display: block; padding: 0; height: auto; }
 	.content { overflow: visible; }
 	.markdown-body { max-width: none; padding: 0; font-size: 12pt; color: #000; }

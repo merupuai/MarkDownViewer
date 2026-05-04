@@ -49,6 +49,10 @@ export type AppRPC = {
 			clearRecent: { params: {}; response: { ok: boolean } };
 			searchFolder: { params: { root: string; query: string; caseSensitive?: boolean; wholeWord?: boolean }; response: SearchResults };
 			exportHtml: { params: { html: string; title: string; defaultName: string }; response: { ok: boolean; path?: string } };
+			windowMinimize: { params: {}; response: { ok: boolean } };
+			windowMaximizeToggle: { params: {}; response: { ok: boolean; maximized: boolean } };
+			windowClose: { params: {}; response: { ok: boolean } };
+			getPlatform: { params: {}; response: { platform: "darwin" | "win32" | "linux"; isMac: boolean } };
 		};
 		messages: {
 			ready: {};
@@ -64,6 +68,7 @@ export type AppRPC = {
 			folderOpened: FolderPayload;
 			folderUpdated: FolderPayload;
 			menuAction: { action: string };
+			windowStateChanged: { maximized: boolean };
 		};
 	}>;
 };

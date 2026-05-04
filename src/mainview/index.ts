@@ -5,6 +5,7 @@ import type { AppRPC, FilePayload, FolderPayload, TreeNode, RecentEntry, SearchR
 import { buildMarkdown, parseDocument, renderFrontMatterCard } from "./markdown";
 import { createFindController } from "./find-in-doc";
 import { createLightbox } from "./lightbox";
+import { renderSafe as renderSafeMermaid } from "./mermaid-render";
 
 // ============== RPC ==============
 const rpc = Electroview.defineRPC<AppRPC>({
@@ -17,6 +18,10 @@ const rpc = Electroview.defineRPC<AppRPC>({
 			folderOpened: (data) => renderFolder(data, true),
 			folderUpdated: (data) => renderFolder(data, false),
 			menuAction: ({ action }) => handleMenuAction(action),
+			windowStateChanged: ({ maximized }) => {
+				const bar = document.getElementById("titlebar");
+				if (bar) bar.dataset.maximized = maximized ? "true" : "false";
+			},
 		},
 	},
 });
@@ -70,6 +75,24 @@ function configureMermaid() {
 	});
 }
 configureMermaid();
+
+// ============== DOMPurify hardening (M1.S2 — closes SEC-003 / FR-05) ==============
+// The ADD_ATTR allowlist below permits the `style` attribute, which by itself
+// would let a hostile markdown file ship `style="background:url(http://evil)"`
+// or `style="@import url(...)"` to phone home. CSP (M1.S1) blocks the network
+// fetch, but defense-in-depth: strip url() / @import / expression() / behavior:
+// from style values before the attribute reaches the DOM.
+const STYLE_FORBIDDEN = /(?:url\s*\(|@import|expression\s*\(|behavior\s*:|-moz-binding)/i;
+DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+	if (data.attrName !== "style") return;
+	const value = String(data.attrValue || "");
+	if (STYLE_FORBIDDEN.test(value)) {
+		// Drop the attribute entirely rather than try to surgically remove
+		// only the offending declarations — easier to audit, no parser bugs.
+		data.keepAttr = false;
+		data.attrValue = "";
+	}
+});
 
 // ============== Markdown pipeline ==============
 const md = buildMarkdown();
@@ -173,6 +196,21 @@ window.addEventListener("mouseup", () => {
 		try { localStorage.setItem("sidebar-w", document.documentElement.style.getPropertyValue("--sidebar-w")); } catch {}
 	}
 });
+// M1.S8: keyboard control for the resize handle. ←/→ nudge by 16 px,
+// Home/End jump to the min/max so keyboard-only users can adjust the sidebar.
+resizeHandle.addEventListener("keydown", (e) => {
+	const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--sidebar-w"), 10) || 260;
+	let next = current;
+	if (e.key === "ArrowLeft") next = current - 16;
+	else if (e.key === "ArrowRight") next = current + 16;
+	else if (e.key === "Home") next = 180;
+	else if (e.key === "End") next = 560;
+	else return;
+	e.preventDefault();
+	const clamped = Math.max(180, Math.min(560, next));
+	document.documentElement.style.setProperty("--sidebar-w", `${clamped}px`);
+	try { localStorage.setItem("sidebar-w", `${clamped}px`); } catch {}
+});
 const savedW = (() => { try { return localStorage.getItem("sidebar-w"); } catch { return null; } })();
 if (savedW) document.documentElement.style.setProperty("--sidebar-w", savedW);
 
@@ -198,6 +236,13 @@ async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean
 	const t1 = performance.now();
 	rlog("info", `parsed in ${(t1 - t0).toFixed(1)}ms; html=${parsed.html.length}b; frontmatter=${parsed.frontMatter ? Object.keys(parsed.frontMatter).length + " keys" : "none"}`);
 	const fmHtml = renderFrontMatterCard(parsed.frontMatter);
+	// M1.S6 (closes SEC-004 / FR-07): user-visible error banner when the YAML
+	// front-matter block is malformed. We DO NOT include the offending body
+	// (IR-07-02 — could leak secrets the user accidentally typed). The body
+	// still renders below.
+	const fmErrorHtml = parsed.frontMatterError
+		? `<aside class="fm-error" role="status" aria-live="polite">⚠ Front-matter parse error: ${escAttr(parsed.frontMatterError)}<br><span class="fm-error-hint">The file is rendered without front-matter.</span></aside>`
+		: "";
 	const safeBody = DOMPurify.sanitize(parsed.html, {
 		ADD_ATTR: ["target", "data-external", "data-mermaid-src-b64", "data-rel-src", "data-internal-md", "data-wikilink", "data-alert", "data-alert-icon", "class", "id", "style", "align", "width", "height", "valign", "src", "alt", "title", "href", "rel"],
 		ADD_TAGS: ["div", "span", "section", "aside", "details", "summary", "img", "a", "p", "br", "table", "thead", "tbody", "tr", "td", "th", "picture", "source"],
@@ -211,7 +256,7 @@ async function renderFile(payload: FilePayload, opts: { preserveScroll?: boolean
 		const safeTags = (safeBody.match(/<[a-z][a-z0-9-]*/gi) || []).length;
 		rlog("warn", `DOMPurify stripped ${stripped} chars (raw tags=${rawTags}, safe tags=${safeTags})`);
 	}
-	contentEl.innerHTML = fmHtml + safeBody;
+	contentEl.innerHTML = fmErrorHtml + fmHtml + safeBody;
 
 	statusPath.textContent = payload.path;
 	statusStats.textContent = computeStats(parsed.body);
@@ -265,25 +310,34 @@ async function renderMermaidBlocks() {
 		let src = "";
 		try { src = decodeURIComponent(escape(atob(b64))); } catch { src = ""; }
 		const id = `mermaid-${Date.now()}-${i}`;
-		try {
-			const { svg } = await mermaid.render(id, src);
+		// M1.S3 (closes SEC-001): route through renderSafeMermaid so the SVG
+		// is re-sanitized via DOMPurify (SVG profile) BEFORE it touches the DOM.
+		// We then parse the sanitized string with DOMParser and append the
+		// resulting <svg> node — never assigning innerHTML — so no fresh HTML
+		// parsing ever runs against attacker-derivable text.
+		const result = await renderSafeMermaid(id, src);
+		if (result.ok) {
 			const wrap = document.createElement("div");
 			wrap.className = "mermaid-wrap";
-			wrap.innerHTML = svg;
+			const parsed = new DOMParser().parseFromString(result.safeSvg, "image/svg+xml");
+			const svgRoot = parsed.documentElement;
+			if (svgRoot && svgRoot.nodeName.toLowerCase() === "svg") {
+				wrap.appendChild(svgRoot);
+			} else {
+				rlog("error", `mermaid #${i} produced non-SVG root after sanitize`);
+			}
 			wrap.addEventListener("click", () => {
 				const inner = wrap.querySelector("svg");
 				if (inner) lightbox.open(inner, "Diagram");
 			});
 			wrap.setAttribute("data-mermaid-src-b64", b64);
 			block.replaceWith(wrap);
-			rlog("info", `mermaid #${i} OK (${src.length} chars)`);
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			const firstLine = src.split("\n").find((l) => l.trim() && !l.trim().startsWith("%%")) || "(empty)";
-			rlog("error", `mermaid #${i} FAILED: ${msg.split("\n")[0]} | first line: ${firstLine}`);
+			rlog("info", `mermaid #${i} OK (${src.length} chars; sanitizer stripped ${result.stripped})`);
+		} else {
+			rlog("error", `mermaid #${i} FAILED: ${result.error.split("\n")[0]} | first line: ${result.firstSourceLine}`);
 			const errBox = document.createElement("div");
 			errBox.className = "mermaid-error";
-			errBox.textContent = `Mermaid render error:\n${msg}\n\nSource:\n${src}`;
+			errBox.textContent = `Mermaid render error:\n${result.error}\n\nSource:\n${src}`;
 			block.replaceWith(errBox);
 		}
 	}
@@ -478,7 +532,7 @@ function renderTreeNode(node: TreeNode, depth: number): HTMLElement {
 
 	if (node.type === "dir") {
 		const chev = document.createElement("span");
-		chev.className = "chev";
+		chev.className = "chev collapsed";
 		chev.innerHTML = CHEV_SVG;
 		const icon = document.createElement("span");
 		icon.className = "icon";
@@ -488,7 +542,7 @@ function renderTreeNode(node: TreeNode, depth: number): HTMLElement {
 		name.textContent = node.name;
 		row.append(chev, icon, name);
 		const children = document.createElement("div");
-		children.className = "tree-children";
+		children.className = "tree-children collapsed";
 		for (const child of node.children) children.appendChild(renderTreeNode(child, depth + 1));
 		row.addEventListener("click", () => {
 			const collapsed = children.classList.toggle("collapsed");
@@ -804,8 +858,68 @@ window.addEventListener("keydown", (e) => {
 	else if (k === "r" && e.shiftKey && lastPayload?.path) { e.preventDefault(); revealInFinder(lastPayload.path); }
 });
 
+// ============== Titlebar (custom window controls) ==============
+// macOS uses native traffic lights (titleBarStyle: "hiddenInset") so we hide
+// our buttons there. Windows/Linux render in-window controls that proxy to
+// Electrobun's BrowserWindow API via RPC.
+async function initTitlebar() {
+	const bar = document.getElementById("titlebar") as HTMLElement | null;
+	const controls = document.getElementById("titlebar-controls") as HTMLElement | null;
+	const minBtn = document.getElementById("win-min");
+	const maxBtn = document.getElementById("win-max");
+	const closeBtn = document.getElementById("win-close");
+	const dragRegion = bar?.querySelector<HTMLElement>(".titlebar-drag");
+	const titleEl = document.getElementById("titlebar-title");
+	if (!bar || !controls || !minBtn || !maxBtn || !closeBtn) return;
+
+	// Platform-aware control visibility.
+	try {
+		const { platform, isMac } = await electroview.rpc!.request.getPlatform({});
+		bar.dataset.platform = platform;
+		controls.hidden = isMac;
+	} catch {
+		// If RPC fails, default to showing controls — better to have them than not.
+		bar.dataset.platform = "win32";
+		controls.hidden = false;
+	}
+
+	minBtn.addEventListener("click", () => {
+		electroview.rpc!.request.windowMinimize({}).catch(() => {});
+	});
+	maxBtn.addEventListener("click", async () => {
+		try {
+			const r = await electroview.rpc!.request.windowMaximizeToggle({});
+			if (r.ok) bar.dataset.maximized = r.maximized ? "true" : "false";
+		} catch {}
+	});
+	closeBtn.addEventListener("click", () => {
+		electroview.rpc!.request.windowClose({}).catch(() => {});
+	});
+
+	// Windows convention: double-click on the drag area toggles maximise.
+	dragRegion?.addEventListener("dblclick", async () => {
+		try {
+			const r = await electroview.rpc!.request.windowMaximizeToggle({});
+			if (r.ok) bar.dataset.maximized = r.maximized ? "true" : "false";
+		} catch {}
+	});
+
+	// Mirror document.title into the titlebar text. Many code paths update
+	// document.title (e.g. file-opened renders); this picks them all up.
+	if (titleEl) {
+		const sync = () => { titleEl.textContent = document.title || "Markdown Viewer"; };
+		sync();
+		const titleNode = document.querySelector("title");
+		if (titleNode) new MutationObserver(sync).observe(titleNode, { childList: true, characterData: true, subtree: true });
+	}
+}
+
 // ============== Boot ==============
 (async () => {
+	// Initialise titlebar BEFORE send.ready so the windowStateChanged broadcast
+	// (which the bun side emits in response to ready) lands with DOM elements
+	// already wired up.
+	await initTitlebar();
 	electroview.rpc!.send.ready({});
 	await refreshRecent();
 	const initial = await electroview.rpc!.request.getInitialFile({});

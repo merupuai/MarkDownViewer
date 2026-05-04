@@ -5,15 +5,39 @@ import {
 	ApplicationMenu,
 } from "electrobun/bun";
 import Electrobun from "electrobun/bun";
-import { watch, readdirSync, statSync, mkdirSync, existsSync, readFileSync, writeFileSync, appendFileSync, type FSWatcher } from "fs";
+import { watch, readdirSync, statSync, mkdirSync, existsSync, readFileSync, writeFileSync, appendFileSync, realpathSync, chmodSync, type FSWatcher } from "fs";
 import { fileURLToPath } from "url";
-import { basename, join, dirname, resolve, extname } from "path";
+import { basename, join, dirname, resolve, extname, sep as pathSep } from "path";
 import type { AppRPC, FilePayload, FolderPayload, TreeNode, RecentEntry, SearchResults, SearchHit } from "../shared/rpc";
+import { append as logAppend, logPath as resolvedLogPath } from "./log";
+
+// Resolve the typed rpc object that BrowserView.defineRPC<AppRPC>(...) returns,
+// so mainWindow.webview.rpc.send.* is fully typed against AppRPC.webview.messages
+// instead of falling back to the loose RPCWithTransport default.
+type AppBunRPC = ReturnType<typeof BrowserView.defineRPC<AppRPC>>;
 
 const APP_NAME = "MarkdownViewer";
 const PLATFORM_HOME = Bun.env["HOME"] || Bun.env["USERPROFILE"] || "/";
 
-let mainWindow: BrowserWindow | null = null;
+// ============== License gate ==============
+// MIT (Non-Resale Variant) — © 2026 MFTLabs · Developed by CoBolt.
+// EULA_VERSION is bumped if license terms materially change so users must
+// re-accept. The marker file lives in the OS-canonical user-data dir and is
+// also pre-populated by the Windows Inno Setup installer (which collects
+// click-through acceptance at install time).
+const EULA_VERSION = "v1";
+function eulaUserDataDir(): string {
+	if (process.platform === "darwin") {
+		return join(PLATFORM_HOME, "Library", "Application Support", "com.local.markdownviewer");
+	}
+	if (process.platform === "win32") {
+		return join(Bun.env["APPDATA"] || PLATFORM_HOME, "MarkdownViewer");
+	}
+	return join(Bun.env["XDG_CONFIG_HOME"] || join(PLATFORM_HOME, ".config"), "markdown-viewer");
+}
+const EULA_MARKER = join(eulaUserDataDir(), `eula-accepted-${EULA_VERSION}`);
+
+let mainWindow: BrowserWindow<AppBunRPC> | null = null;
 let pendingInitialFile: FilePayload | null = null;
 let viewReady = false;
 let currentFileWatcher: FSWatcher | null = null;
@@ -25,6 +49,130 @@ let currentFolderRoot: string | null = null;
 function urlToPath(url: string): string {
 	if (url.startsWith("file://")) return fileURLToPath(url);
 	return url;
+}
+
+// ============== License acceptance gate ==============
+// Returns true if the user has already accepted (marker present), or if they
+// accept the dialog now. Returns false on decline → caller should exit.
+// On Linux without zenity available, defaults to permissive (CLI / headless).
+function ensureEulaAccepted(): boolean {
+	if (existsSync(EULA_MARKER)) return true;
+
+	const accepted = showEulaDialog();
+	if (!accepted) return false;
+
+	try {
+		mkdirSync(eulaUserDataDir(), { recursive: true });
+		writeFileSync(EULA_MARKER, `${new Date().toISOString()} (accepted at first run)\n`);
+		// M1.S9 (closes 26c § 4): make the marker non-world-writable on POSIX.
+		// chmodSync is a no-op for the bits it ignores on Windows, so it's safe.
+		if (process.platform !== "win32") {
+			try { chmodSync(EULA_MARKER, 0o644); } catch (err) { logAppend(`[mv] WARN: chmod 0644 on EULA marker failed: ${String(err)}\n`); }
+		}
+	} catch (err) {
+		logAppend(`[mv] WARN: failed to persist EULA marker at ${EULA_MARKER}: ${String(err)}\n`);
+	}
+	return true;
+}
+
+// Plain license summary — used both by the first-run accept gate and the
+// re-displayable "License…" menu item. Full legal text lives in LICENSE.
+const LICENSE_SUMMARY_LINES = [
+	"Markdown Viewer",
+	"© 2026 MFTLabs · Developed by CoBolt",
+	"",
+	"This software is FREE for personal, educational, and internal business",
+	"use under the MIT (Non-Resale Variant) license.",
+	"",
+	"You MAY: use, copy, modify, and redistribute it freely.",
+	"You MAY NOT: sell, resell, sublicense for a fee, or bundle it inside a",
+	"paid commercial product without prior written permission from MFTLabs.",
+];
+
+// Re-displayable license info dialog (no acceptance, just OK).
+function showLicenseInfo(): void {
+	const lines = [...LICENSE_SUMMARY_LINES, "",
+		"For full legal text see the LICENSE file shipped with this app.",
+		"For commercial / resale licensing inquiries, contact MFTLabs."];
+
+	if (process.platform === "darwin") {
+		const text = lines.join("\\n").replace(/"/g, '\\"');
+		const script = `display dialog "${text}" with title "About Markdown Viewer — License" `
+			+ `buttons {"OK"} default button 1 with icon note`;
+		try { Bun.spawnSync(["osascript", "-e", script]); } catch {}
+		return;
+	}
+	if (process.platform === "win32") {
+		const text = lines.join("`n").replace(/'/g, "''");
+		const script = "Add-Type -AssemblyName System.Windows.Forms;"
+			+ ` [System.Windows.Forms.MessageBox]::Show('${text}',`
+			+ " 'About Markdown Viewer - License',"
+			+ " [System.Windows.Forms.MessageBoxButtons]::OK,"
+			+ " [System.Windows.Forms.MessageBoxIcon]::Information) | Out-Null";
+		try { Bun.spawnSync(["powershell", "-NoProfile", "-NonInteractive", "-Command", script]); } catch {}
+		return;
+	}
+	for (const cmd of [
+		["zenity", "--info", "--title=About Markdown Viewer — License", `--text=${lines.join("\n")}`],
+		["kdialog", "--title", "About Markdown Viewer — License", "--msgbox", lines.join("\n")],
+	]) {
+		try {
+			const proc = Bun.spawnSync(cmd);
+			if (proc.exitCode === 0) return;
+		} catch {}
+	}
+}
+
+function showEulaDialog(): boolean {
+	const lines = [...LICENSE_SUMMARY_LINES, "",
+		"By clicking \"I Agree\" you accept these terms."];
+
+	if (process.platform === "darwin") {
+		// osascript: cancel button → non-zero exit; default = "I Agree".
+		const text = lines.join("\\n").replace(/"/g, '\\"');
+		const script = `display dialog "${text}" with title "License Agreement — Markdown Viewer" `
+			+ `buttons {"Decline & Quit", "I Agree"} `
+			+ `default button 2 cancel button 1 with icon caution`;
+		try {
+			const proc = Bun.spawnSync(["osascript", "-e", script]);
+			return proc.exitCode === 0;
+		} catch { return false; }
+	}
+
+	if (process.platform === "win32") {
+		// Used only when the Inno Setup installer didn't pre-drop the marker
+		// (e.g. manual registry-import install or dev build). MessageBox Yes=6.
+		const text = lines.join("`n").replace(/'/g, "''");
+		const script = "Add-Type -AssemblyName System.Windows.Forms;"
+			+ ` $r = [System.Windows.Forms.MessageBox]::Show('${text}',`
+			+ " 'License Agreement - Markdown Viewer',"
+			+ " [System.Windows.Forms.MessageBoxButtons]::YesNo,"
+			+ " [System.Windows.Forms.MessageBoxIcon]::Information,"
+			+ " [System.Windows.Forms.MessageBoxDefaultButton]::Button1);"
+			+ " if ($r -eq 'Yes') { exit 0 } else { exit 1 }";
+		try {
+			const proc = Bun.spawnSync(["powershell", "-NoProfile", "-NonInteractive", "-Command", script]);
+			return proc.exitCode === 0;
+		} catch { return false; }
+	}
+
+	// Linux: try zenity, then kdialog. If neither exists, allow (CLI/headless).
+	const text = lines.join("\n");
+	for (const cmd of [
+		["zenity", "--question", "--title=License Agreement — Markdown Viewer",
+			`--text=${text}`, "--ok-label=I Agree", "--cancel-label=Decline & Quit"],
+		["kdialog", "--title", "License Agreement — Markdown Viewer",
+			"--yesno", text, "--yes-label", "I Agree", "--no-label", "Decline & Quit"],
+	]) {
+		try {
+			const proc = Bun.spawnSync(cmd);
+			if (proc.exitCode === 0) return true;
+			if (proc.exitCode === 1) return false;
+			// any other code → tool not found / error → try next
+		} catch { /* try next */ }
+	}
+	// No GUI dialog tool available — permissive fallback.
+	return true;
 }
 
 const MD_EXT_RE = /\.(md|markdown|mdown|mkd|mkdn|mdx)$/i;
@@ -222,20 +370,61 @@ function pushRecent(path: string) {
 }
 
 // ============== Image path resolution ==============
+//
+// M1.S4 (closes SEC-002 / FR-04): every src is resolved against the document
+// directory, then realpath-normalized to follow symlinks/junctions, then
+// rejected unless the resulting absolute path is contained inside the
+// allowlist (the doc dir itself, OR — when a folder is open — the open folder
+// root). A hostile <img src="../../.ssh/id_rsa"> resolves outside docDir and
+// returns {error: "out-of-bounds"}.
+//
+// M1.S5 (closes SR-05): the extension must be one of the IMAGE_MIME keys.
+// The previous "application/octet-stream" fallthrough — which let any file
+// type be returned as a base64 data URL — is removed.
+const IMAGE_MIME: Record<string, string> = {
+	png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
+	gif: "image/gif", svg: "image/svg+xml", webp: "image/webp",
+	bmp: "image/bmp", ico: "image/x-icon", avif: "image/avif",
+};
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024; // 10 MB sanity cap
+
+function realCanonical(p: string): string {
+	try { return realpathSync(p); } catch { return resolve(p); }
+}
+
+function isContainedIn(candidate: string, baseDir: string): boolean {
+	const normalizedBase = realCanonical(baseDir);
+	const normalizedCand = realCanonical(candidate);
+	const baseWithSep = normalizedBase.endsWith(pathSep) ? normalizedBase : normalizedBase + pathSep;
+	return normalizedCand === normalizedBase || normalizedCand.startsWith(baseWithSep);
+}
+
 function resolveImage(docPath: string, src: string): { dataUrl: string } | { error: string } {
 	try {
 		if (/^(https?:|data:|file:)/.test(src)) return { error: "external" };
 		const docDir = dirname(docPath);
 		const resolved = resolve(docDir, src);
-		if (!existsSync(resolved)) return { error: `Not found: ${resolved}` };
-		const buf = readFileSync(resolved);
+
+		// MIME enforcement BEFORE filesystem access — keep the rejection
+		// purely textual until we know we're allowed to read the file.
 		const ext = extname(resolved).toLowerCase().slice(1);
-		const mime: Record<string, string> = {
-			png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg",
-			gif: "image/gif", svg: "image/svg+xml", webp: "image/webp",
-			bmp: "image/bmp", ico: "image/x-icon", avif: "image/avif",
-		};
-		const mt = mime[ext] || "application/octet-stream";
+		const mt = IMAGE_MIME[ext];
+		if (!mt) return { error: `unsupported-type:${ext || "(none)"}` };
+
+		// Path containment: resolved path must be under docDir, OR under the
+		// currently open folder root if any. A hostile relative path like
+		// `../../.ssh/id_rsa` resolves outside both and is rejected.
+		const allowedRoots = [docDir];
+		if (currentFolderRoot) allowedRoots.push(currentFolderRoot);
+		const inBounds = allowedRoots.some((root) => isContainedIn(resolved, root));
+		if (!inBounds) return { error: `out-of-bounds:${resolved}` };
+
+		if (!existsSync(resolved)) return { error: `not-found:${resolved}` };
+		const stat = statSync(resolved);
+		if (!stat.isFile()) return { error: `not-a-file:${resolved}` };
+		if (stat.size > MAX_IMAGE_BYTES) return { error: `too-large:${stat.size}` };
+
+		const buf = readFileSync(resolved);
 		return { dataUrl: `data:${mt};base64,${buf.toString("base64")}` };
 	} catch (err) {
 		return { error: err instanceof Error ? err.message : String(err) };
@@ -351,6 +540,34 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 					return { ok: true, path: target };
 				} catch { return { ok: false }; }
 			},
+			// ============== Window controls ==============
+			// Required because the main window uses a custom (non-native) titlebar
+			// on Windows/Linux — the renderer draws min/max/close buttons that
+			// proxy here. macOS continues to use the OS traffic-light buttons via
+			// titleBarStyle: "hiddenInset" and never calls these RPCs.
+			windowMinimize: async () => {
+				try { mainWindow?.minimize(); return { ok: true }; }
+				catch { return { ok: false }; }
+			},
+			windowMaximizeToggle: async () => {
+				try {
+					if (!mainWindow) return { ok: false, maximized: false };
+					if (mainWindow.isMaximized()) {
+						mainWindow.unmaximize();
+						return { ok: true, maximized: false };
+					}
+					mainWindow.maximize();
+					return { ok: true, maximized: true };
+				} catch { return { ok: false, maximized: false }; }
+			},
+			windowClose: async () => {
+				try { mainWindow?.close(); return { ok: true }; }
+				catch { return { ok: false }; }
+			},
+			getPlatform: async () => ({
+				platform: process.platform as "darwin" | "win32" | "linux",
+				isMac: process.platform === "darwin",
+			}),
 		},
 		messages: {
 			ready: () => {
@@ -360,12 +577,21 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 					if (!pendingInitialFile.error) watchFile(pendingInitialFile.path);
 					pendingInitialFile = null;
 				}
+				// Push initial maximised state so the renderer's titlebar shows the
+				// correct maximize-vs-restore icon on first paint.
+				try {
+					if (mainWindow) {
+						mainWindow.webview.rpc?.send.windowStateChanged({
+							maximized: mainWindow.isMaximized(),
+						});
+					}
+				} catch {}
 			},
 			print: () => {
 				try { (mainWindow as any)?.webview?.print?.(); } catch {}
 			},
 			log: ({ level, msg }) => {
-				try { appendFileSync("/tmp/mdv-bun.log", `[view ${level}] ${msg}\n`); } catch {}
+				logAppend(`[view ${level}] ${msg}\n`);
 			},
 		},
 	},
@@ -374,10 +600,22 @@ const rpc = BrowserView.defineRPC<AppRPC>({
 // ============== Boot ==============
 function dbg(...args: unknown[]) {
 	const line = `[${new Date().toISOString()}] ${args.map((a) => (typeof a === "string" ? a : JSON.stringify(a))).join(" ")}\n`;
-	try { appendFileSync("/tmp/mdv-bun.log", line); } catch {}
+	// M1.S7 (closes SEC-005 / FR-08): portable rotating log via src/bun/log.ts.
+	logAppend(line);
 	console.log(...args);
 }
+dbg("[mv] log file:", resolvedLogPath());
 dbg("[mv] boot — Bun.argv =", JSON.stringify(Bun.argv), "ppid=", process.ppid);
+
+// ============== License gate (must run before window creation) ==============
+// On first run, show a native license-acceptance dialog. The marker file is
+// pre-populated by the Windows Inno Setup installer so this is a no-op there
+// for installer-based installs.
+if (!ensureEulaAccepted()) {
+	dbg("[mv] EULA declined — quitting");
+	process.exit(0);
+}
+dbg("[mv] EULA", EULA_VERSION, "accepted (marker:", EULA_MARKER + ")");
 
 // Workaround: Electrobun's launcher (Zig binary) does not forward argv to Bun
 // (see launcher/main.zig — it hardcodes ["./bun", resources_path]).
@@ -492,19 +730,36 @@ ApplicationMenu.setApplicationMenu([
 			{ role: "front" },
 		],
 	},
+	{
+		label: "Help",
+		submenu: [
+			{ label: "License…", action: "show-license" },
+		],
+	},
 ]);
 
 Electrobun.events.on("application-menu-clicked", (e) => {
 	const action = e.data.action;
-	if (!mainWindow || !action) return;
+	if (!action) return;
+	// Handle license action in the main process (native dialog, no renderer needed).
+	if (action === "show-license") { showLicenseInfo(); return; }
+	if (!mainWindow) return;
 	mainWindow.webview.rpc?.send.menuAction({ action });
 });
+
+// titleBarStyle is a macOS-defined concept. On macOS "hiddenInset" gives the
+// transparent titlebar with native traffic-light buttons inset over the
+// content. On Windows/Linux the same option produced a borderless window
+// with no native chrome AND no resize edges — so we use "hidden" there and
+// let the renderer draw its own min/maximize/close controls in the existing
+// 28-px titlebar slot.
+const isMac = process.platform === "darwin";
 
 mainWindow = new BrowserWindow({
 	title: "Markdown Viewer",
 	url: "views://mainview/index.html",
 	rpc,
-	titleBarStyle: "hiddenInset",
+	titleBarStyle: isMac ? "hiddenInset" : "hidden",
 	frame: { width: 1240, height: 840, x: 120, y: 80 },
 });
 

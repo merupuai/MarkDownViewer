@@ -1,5 +1,4 @@
 import MarkdownIt from "markdown-it";
-// @ts-expect-error - no types
 import markdownItAnchor from "markdown-it-anchor";
 // @ts-expect-error - no types
 import { full as markdownItEmoji } from "markdown-it-emoji";
@@ -21,6 +20,11 @@ export type ParsedDoc = {
 	html: string;
 	frontMatter: FrontMatter;
 	body: string;
+	// M1.S6 (closes SEC-004 / FR-07): when gray-matter fails to parse a
+	// malformed YAML/TOML/JSON front-matter block, surface the message so the
+	// renderer can show a dismissible warning. The body still renders;
+	// previous behavior silently dropped the front-matter without feedback.
+	frontMatterError?: string;
 };
 
 function escAttr(s: string): string {
@@ -60,7 +64,11 @@ export function buildMarkdown(): MarkdownIt {
 	});
 
 	md.use(markdownItAnchor, {
-		permalink: markdownItAnchor.permalink.headerLink({ safariReaderFix: true }),
+		permalink: markdownItAnchor.permalink.linkInsideHeader({
+			symbol: "#",
+			placement: "after",
+			ariaHidden: false,
+		}),
 		slugify: (s: string) =>
 			s.toLowerCase().trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-"),
 	});
@@ -115,13 +123,23 @@ export function buildMarkdown(): MarkdownIt {
 export function parseDocument(md: MarkdownIt, raw: string): ParsedDoc {
 	let frontMatter: FrontMatter = null;
 	let body = raw;
+	let frontMatterError: string | undefined;
+	// Detect a front-matter block first so we can distinguish "no front-matter"
+	// (legitimate, no error) from "malformed front-matter" (M1.S6 user-visible).
+	const hasFrontMatterDelim = /^\s*---\s*\n[\s\S]*?\n\s*---\s*(?:\n|$)/.test(raw);
 	try {
 		const parsed = matter(raw);
 		if (parsed.data && Object.keys(parsed.data).length > 0) frontMatter = parsed.data as Record<string, unknown>;
 		body = parsed.content;
-	} catch {}
+	} catch (err) {
+		// Only surface as user error if the user clearly intended front-matter
+		// (delimiters present). Otherwise this is a benign edge case in matter().
+		if (hasFrontMatterDelim) {
+			frontMatterError = err instanceof Error ? err.message : String(err);
+		}
+	}
 	const html = md.render(body);
-	return { html, frontMatter, body };
+	return { html, frontMatter, body, frontMatterError };
 }
 
 export function renderFrontMatterCard(fm: FrontMatter): string {
@@ -173,27 +191,28 @@ function registerAlertsPlugin(md: MarkdownIt) {
 						blockquoteOpen.attrSet("data-alert", kind);
 
 						// Replace first inline content with title
-						const remaining = tokens[j].content.replace(/^\[![A-Z]+\][ \t]*\n?/i, "");
-						tokens[j].content = remaining;
-						if (tokens[j].children && tokens[j].children.length > 0) {
-							const child = tokens[j].children[0];
-							if (child.type === "text") {
+						const inlineToken = tokens[j];
+						inlineToken.content = inlineToken.content.replace(/^\[![A-Z]+\][ \t]*\n?/i, "");
+						const children = inlineToken.children;
+						if (children && children.length > 0) {
+							const child = children[0];
+							if (child && child.type === "text") {
 								child.content = child.content.replace(/^\[![A-Z]+\][ \t]*\n?/i, "");
 							}
 							// Also drop a leading softbreak if present
 							while (
-								tokens[j].children.length > 0 &&
-								(tokens[j].children[0].type === "softbreak" || tokens[j].children[0].type === "hardbreak" ||
-									(tokens[j].children[0].type === "text" && tokens[j].children[0].content === ""))
+								children.length > 0 &&
+								(children[0]!.type === "softbreak" || children[0]!.type === "hardbreak" ||
+									(children[0]!.type === "text" && children[0]!.content === ""))
 							) {
-								tokens[j].children.shift();
+								children.shift();
 							}
 						}
 						// Insert title node
 						const titleHtml = `<div class="gfm-alert-title"><span class="gfm-alert-icon" data-alert-icon="${kind}"></span>${kind.charAt(0) + kind.slice(1).toLowerCase()}</div>`;
 						const titleToken = new state.Token("html_inline", "", 0);
 						titleToken.content = titleHtml;
-						if (tokens[j].children) tokens[j].children.unshift(titleToken);
+						if (inlineToken.children) inlineToken.children.unshift(titleToken);
 						break;
 					}
 				}
