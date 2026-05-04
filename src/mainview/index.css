@@ -110,6 +110,7 @@ html, body {
 	background: var(--bg);
 	border-bottom: 1px solid var(--border-soft);
 	-webkit-app-region: drag;
+	-webkit-user-select: none;
 	user-select: none;
 }
 .titlebar-brand {
