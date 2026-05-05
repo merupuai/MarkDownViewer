@@ -14,6 +14,6 @@ Brownfield pipeline artifacts organized by phase. Canonical sources live under `
 - [Target-State Scope & Design (P4, P5)](./06-target-state/) — 14 documents
 - [Delivery Plan (P6)](./07-delivery-plan/) — 8 documents
 - [Standards Compliance (P5.5)](./08-compliance/) — 0 documents
-- [Architecture Diagrams & Executive Reports](./09-diagrams/) — 0 documents
+- [Architecture Diagrams & Executive Reports](./09-diagrams/) — 16 documents
 
 _Auto-published by `cobolt-publish-docs`. Canonical source: `_cobolt-output/latest/brownfield`._

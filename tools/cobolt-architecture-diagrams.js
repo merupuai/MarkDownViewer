@@ -24,6 +24,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { graphPath, archRoot, CANONICAL_VERSION } = require('./cobolt-architecture-graph');
+const { meetsRequirements, effectiveRequires } = require('../lib/cobolt-arch-diagram-requirements');
 
 // ── Profile registry ────────────────────────────────────────────────────────
 
@@ -1508,7 +1509,17 @@ function coexistenceNodeFromGraph(node, phase, iconKind = null) {
   };
 }
 
+// In code-scan mode the graph describes the actual project filesystem, so
+// fabricating a synthetic MUG-domain node would be a hallucination — refuse.
+// In planning-artifacts / composite mode the graph is built from validated
+// planning docs that may legitimately mention these labels, so synthesis
+// remains allowed.
+function _refuseSyntheticInCodeScan(graph) {
+  return graph?.mode === 'code-scan';
+}
+
 function coexistenceSyntheticNode(graph, id, label, phase, kind, iconKind, evidencePattern, evidenceSummary) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const column = coexistenceColumnMeta(phase);
   const evidence = coexistenceEvidenceRef(graph, evidencePattern, evidenceSummary);
   return {
@@ -1777,6 +1788,7 @@ function businessNodeFromGraph(node, stage, iconKind = null) {
 }
 
 function businessSyntheticNode(graph, id, label, stage, kind, iconKind, evidencePattern, evidenceSummary) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const meta = businessStageMeta(stage);
   const evidence = coexistenceEvidenceRef(graph, evidencePattern, evidenceSummary);
   return {
@@ -2001,12 +2013,12 @@ function deriveBusinessValueStreamTopology(graph) {
 
 const SOLUTION_CONTEXT_GROUPS = [
   { id: 'External actors', label: 'External actors', boundary: false, solutionLayer: 'actors' },
-  { id: 'System boundary', label: 'MUG system boundary', boundary: true, solutionLayer: 'system' },
+  { id: 'System boundary', label: 'System Boundary', boundary: true, solutionLayer: 'system' },
   { id: 'External systems', label: 'External systems', boundary: false, solutionLayer: 'external' },
 ];
 
 const SOLUTION_CONTAINER_GROUPS = [
-  { id: 'MUG Platform', label: 'MUG Platform Boundary', boundary: true, solutionLayer: 'platform' },
+  { id: 'platform-boundary', label: 'Platform Boundary', boundary: true, solutionLayer: 'platform' },
   { id: 'State and Evidence Stores', label: 'State and Evidence Stores', boundary: true, solutionLayer: 'state' },
 ];
 
@@ -2126,6 +2138,7 @@ function solutionNodeFromGraph(node, options = {}) {
 }
 
 function solutionSyntheticNode(graph, id, label, kind, options = {}) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const evidence = solutionEvidenceRef(
     graph,
     options.evidencePattern || /solution-architecture|architecture|prd|planning/i,
@@ -2216,6 +2229,7 @@ function applicationNodeFromGraph(node, options = {}) {
 }
 
 function applicationSyntheticNode(graph, id, label, kind, options = {}) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const layer = options.applicationLayer || 'runtime';
   const group = options.group || applicationLayerMeta(layer).id;
   const evidence = solutionEvidenceRef(
@@ -2279,6 +2293,7 @@ function aiInvocationNodeFromGraph(node, options = {}) {
 }
 
 function aiInvocationSyntheticNode(graph, id, label, kind, options = {}) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const stage = options.aiStage || 'entry';
   const evidence = solutionEvidenceRef(
     graph,
@@ -2367,6 +2382,7 @@ function dataNodeFromGraph(node, options = {}) {
 }
 
 function dataSyntheticNode(graph, id, label, kind, options = {}) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const groups = options.groups || DATA_MODEL_GROUPS;
   const stage = options.dataStage || 'state';
   const evidence = solutionEvidenceRef(
@@ -2432,6 +2448,7 @@ function releaseNodeFromGraph(node, options = {}) {
 }
 
 function releaseSyntheticNode(graph, id, label, kind, options = {}) {
+  if (_refuseSyntheticInCodeScan(graph)) return null;
   const stage = options.releaseStage || 'build';
   const evidence = solutionEvidenceRef(
     graph,
@@ -3872,9 +3889,9 @@ function deriveApplicationComponentTopology(graph) {
     componentRole: 'platform',
     kind: 'component',
     iconKind: 'platformNode',
-    label: 'MUG Application Boundary',
+    label: 'Application Boundary',
     syntheticId: 'app-components-mug',
-    syntheticLabel: 'MUG Application Boundary',
+    syntheticLabel: 'Application Boundary',
   });
   const gateway = applicationAddGraphNode(
     graph,
@@ -5254,7 +5271,7 @@ function deriveSolutionContainerTopology(graph) {
 
   const inbound = solutionAddGraphNode(graph, add, /inbound.*chat\/completions|\/v1\/chat\/completions/i, {
     types: ['component', 'api'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'ingress',
     c4Role: 'container',
     kind: 'api',
@@ -5264,7 +5281,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const tls = solutionAddGraphNode(graph, add, /tls \+ auth|tls.*auth/i, {
     types: ['securityControl', 'component'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'securityControl',
@@ -5274,7 +5291,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const tenant = solutionAddGraphNode(graph, add, /virtual-key|tenant resolve/i, {
     types: ['component', 'securityControl', 'api'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'component',
@@ -5284,7 +5301,7 @@ function deriveSolutionContainerTopology(graph) {
     types: ['securityControl', 'component'],
     prefer: [/identity bc/i, /rbac|sessions/i],
     avoid: [/enterprise idp|directory/i],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'securityControl',
@@ -5296,7 +5313,7 @@ function deriveSolutionContainerTopology(graph) {
     types: ['component', 'dataEntity'],
     prefer: [/^3\.\s*rate-limit/i],
     avoid: [/quota_profiles|budgets|\/admin\/v1\/quotas/i],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'component',
@@ -5306,7 +5323,7 @@ function deriveSolutionContainerTopology(graph) {
     types: ['securityControl', 'component', 'dataEntity', 'api'],
     prefer: [/^4\.\s*redaction pack apply/i],
     avoid: [/redaction_packs|\/admin\/v1\/redaction/i],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'securityControl',
@@ -5316,7 +5333,7 @@ function deriveSolutionContainerTopology(graph) {
     types: ['securityControl', 'component', 'dataEntity'],
     prefer: [/^5\.\s*kill-switch check/i],
     avoid: [/kill_switches|incident responder/i],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'securityControl',
@@ -5330,7 +5347,7 @@ function deriveSolutionContainerTopology(graph) {
       types: ['securityControl', 'component'],
       prefer: [/^8\.\s*policy bundle eval/i, /policy bundle eval/i, /policy-engine bc/i],
       avoid: [/`?budgets`?|quota_profiles|policy_bundles|policy_versions/i],
-      group: 'MUG Platform',
+      group: 'platform-boundary',
       solutionLayer: 'control',
       c4Role: 'container',
       kind: 'securityControl',
@@ -5339,7 +5356,7 @@ function deriveSolutionContainerTopology(graph) {
   );
   const route = solutionAddGraphNode(graph, add, /route resolution|routing, workflow|event engine/i, {
     types: ['component'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'execution',
     c4Role: 'container',
     kind: 'component',
@@ -5347,7 +5364,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const trust = solutionAddGraphNode(graph, add, /trust class|lease mint/i, {
     types: ['component', 'securityControl'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'execution',
     c4Role: 'container',
     kind: 'component',
@@ -5361,7 +5378,7 @@ function deriveSolutionContainerTopology(graph) {
       types: ['securityControl', 'component', 'dataEntity'],
       prefer: [/^9\.\s*scanner fan-out/i],
       avoid: [/entity-scanners|`scanners`|scanner unavailability/i],
-      group: 'MUG Platform',
+      group: 'platform-boundary',
       solutionLayer: 'control',
       c4Role: 'container',
       kind: 'securityControl',
@@ -5371,7 +5388,7 @@ function deriveSolutionContainerTopology(graph) {
   const providerDispatch = solutionAddGraphNode(graph, add, /provider dispatch|streaming guardrails/i, {
     types: ['integration', 'component'],
     prefer: [/^10\.\s*provider dispatch/i],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'execution',
     c4Role: 'container',
     kind: 'component',
@@ -5381,7 +5398,7 @@ function deriveSolutionContainerTopology(graph) {
   const postVerifier = solutionAddGraphNode(graph, add, /post-condition verifier|re-read|webhook|probe/i, {
     types: ['component', 'securityControl', 'integration'],
     prefer: [/^11\.\s*post-condition verifier/i],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'component',
@@ -5400,7 +5417,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const mcpBridge = solutionAddGraphNode(graph, add, /integrations bc|mcp bridge|tool router|mcp registry/i, {
     types: ['component', 'integration'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'execution',
     c4Role: 'container',
     kind: 'component',
@@ -5408,7 +5425,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const gateway = solutionAddGraphNode(graph, add, /elixir.*gateway server|gateway server cluster|gateway-server$/i, {
     types: ['component', 'platformNode'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'execution',
     c4Role: 'container',
     kind: 'component',
@@ -5416,7 +5433,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const edge = solutionAddGraphNode(graph, add, /go edge agent/i, {
     types: ['component', 'platformNode'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'execution',
     c4Role: 'container',
     kind: 'component',
@@ -5424,7 +5441,7 @@ function deriveSolutionContainerTopology(graph) {
   });
   const controlPlane = solutionAddGraphNode(graph, add, /control-plane bc|admin api|liveview dashboard/i, {
     types: ['component', 'actor', 'platformNode'],
-    group: 'MUG Platform',
+    group: 'platform-boundary',
     solutionLayer: 'control',
     c4Role: 'container',
     kind: 'component',
@@ -8669,9 +8686,111 @@ function generateForState(entries, graph, outDir, context) {
   const iconsResolved = context.iconsResolved || {};
 
   for (const entry of entries) {
+    // Layer B — declarative catalog filter. The graph is the canonical fact
+    // base; the catalog is a *menu* of viewpoints. A viewpoint is only
+    // emitted when the graph carries the evidence it needs (≥2 dataEntity
+    // for ERD, ≥1 identity for identity-flow, …). Skipped diagrams are
+    // recorded with the precise shortfall so the HTML packet can show a
+    // Gaps section instead of shipping fictional stubs.
+    //
+    // Per-entry `requires` overrides; otherwise fall back to the kind
+    // default registered in lib/cobolt-arch-diagram-requirements.js. An
+    // entry with neither => always-satisfied (preserves any catalog entry
+    // that has not yet declared requirements).
+    const reqRule = effectiveRequires(entry);
+    if (reqRule) {
+      const reqCheck = meetsRequirements(graph, reqRule);
+      if (!reqCheck.ok) {
+        diagrams.push({
+          id: entry.id,
+          title: entry.title,
+          taxonomyArea: entry.taxonomyArea,
+          diagramKind: entry.kind,
+          profile: context.profile,
+          state: context.state,
+          status: 'skipped',
+          skipReason: 'insufficient-evidence',
+          skipDetails: reqCheck.missing,
+          required: reqRule,
+          found: reqCheck.found,
+          files: {},
+          confidence: 'unknown',
+          evidenceCount: 0,
+          nodeCount: 0,
+          edgeCount: 0,
+        });
+        continue;
+      }
+    }
+
     try {
-      const spec = buildSpec(entry, graph, context);
+      // Code-scan mode bypasses the per-kind template builders and feeds
+      // graphviz a spec derived directly from the architecture-evidence
+      // graph. Rationale: the per-kind builders (deriveSolutionContext-
+      // Topology, deriveSolutionContainerTopology, deriveApplicationCom-
+      // ponentTopology, …) carry hardcoded zone catalogs and MUG-domain
+      // regex patterns. For any project whose vocabulary doesn't match
+      // those patterns, the resulting spec ships with empty zones (the
+      // "half-baked diagram" failure class).
+      //
+      // For planning-artifacts mode (greenfield validated specs +
+      // brownfield --state=target) the per-kind builders are kept because
+      // the planning artifacts may legitimately use the MUG-shaped
+      // vocabulary, and stakeholder reviewers expect the curated layouts.
+      let spec;
+      if (graph?.mode === 'code-scan') {
+        const graphvizLib = require('../lib/cobolt-arch-graphviz');
+        spec = graphvizLib.buildGenericSpec(entry, graph, context);
+        if (!spec) {
+          diagrams.push({
+            id: entry.id,
+            title: entry.title,
+            taxonomyArea: entry.taxonomyArea,
+            diagramKind: entry.kind,
+            profile: context.profile,
+            state: context.state,
+            status: 'skipped',
+            skipReason: 'no-graph-nodes-for-this-viewpoint',
+            files: {},
+            confidence: 'unknown',
+            evidenceCount: 0,
+            nodeCount: 0,
+            edgeCount: 0,
+          });
+          continue;
+        }
+      } else {
+        spec = buildSpec(entry, graph, context);
+      }
       const slug = slugify(entry.title);
+
+      // Post-build empty-spec gate (Layer B continued). Even after the
+      // declarative requires-rule passed at the top of the loop, the per-
+      // kind builder may end up with zero nodes — typically because every
+      // candidate was a synthetic that was refused (mode=code-scan) or
+      // because the graph had companion nodes but none matched the
+      // viewpoint's specific patterns. Treat as skipped: write neither the
+      // spec nor any format file, record the skip in the manifest. Stops
+      // empty `.mmd` / `.puml` files from shipping.
+      if (!Array.isArray(spec.nodes) || spec.nodes.length === 0) {
+        diagrams.push({
+          id: entry.id,
+          title: entry.title,
+          taxonomyArea: entry.taxonomyArea,
+          diagramKind: entry.kind,
+          profile: context.profile,
+          state: context.state,
+          status: 'skipped',
+          skipReason: 'no-graph-nodes-matched-viewpoint',
+          files: {},
+          confidence: spec.confidence || 'unknown',
+          evidenceCount: (spec.evidence || []).length,
+          nodeCount: 0,
+          edgeCount: 0,
+        });
+        continue;
+      }
+
       const specPath = path.join(sub.specs, `${entry.id}-${slug}.json`);
       writeFile(specPath, JSON.stringify(spec, null, 2));
 
@@ -8698,22 +8817,40 @@ function generateForState(entries, graph, outDir, context) {
       }
 
       if (wantSvgIconic) {
-        // Prefer curated SVG templates for C4, zone, grid, and flow layouts.
-        // Fall back to Graphviz only when no template matches the viewpoint.
-        // post-processing). Falls back to the hand-rolled grid template
-        // when the WASM renderer can't load (offline boxes, missing
-        // @hpcc-js/wasm package, very-large graph timeout, …).
+        // Renderer dispatch by graph mode:
+        //   code-scan        → Graphviz primary (auto-layout from generic
+        //                      spec; no hardcoded zones, no empty boxes).
+        //   planning-artifacts / composite → curated SVG template primary
+        //                      (preserves enterprise-architecture layouts
+        //                      where the MUG vocabulary may legitimately
+        //                      apply); Graphviz fallback if the template
+        //                      throws or returns empty.
         const svgPath = path.join(sub.svgIconic, `${entry.id}-${slug}.svg`);
         let svgContent = null;
-        try {
-          const svgTemplatesLib = require('../lib/cobolt-arch-svg-templates');
-          svgContent = svgTemplatesLib.renderSvgIconic({ spec, theme, iconsResolved });
-        } catch {
-          /* fall through to Graphviz */
-        }
-        if (!svgContent) {
-          const graphvizLib = require('../lib/cobolt-arch-graphviz');
+        const graphvizLib = require('../lib/cobolt-arch-graphviz');
+        if (graph?.mode === 'code-scan') {
           svgContent = graphvizLib.renderSvgViaGraphvizSync({ spec, iconsResolved });
+          if (!svgContent) {
+            // Graphviz failed to render (WASM load failure, helper missing).
+            // Fall back to the hand-rolled SVG template so we still ship
+            // *something*, even if it has the legacy empty-zone aesthetic.
+            try {
+              const svgTemplatesLib = require('../lib/cobolt-arch-svg-templates');
+              svgContent = svgTemplatesLib.renderSvgIconic({ spec, theme, iconsResolved });
+            } catch {
+              /* both renderers down; svgContent stays null */
+            }
+          }
+        } else {
+          try {
+            const svgTemplatesLib = require('../lib/cobolt-arch-svg-templates');
+            svgContent = svgTemplatesLib.renderSvgIconic({ spec, theme, iconsResolved });
+          } catch {
+            /* fall through to Graphviz */
+          }
+          if (!svgContent) {
+            svgContent = graphvizLib.renderSvgViaGraphvizSync({ spec, iconsResolved });
+          }
         }
         writeFile(svgPath, svgContent);
         files.svgIconic = path.relative(outDir, svgPath).replace(/\\/g, '/');
@@ -8733,8 +8870,13 @@ function generateForState(entries, graph, outDir, context) {
         diagramKind: entry.kind,
         profile: context.profile,
         state: context.state === 'composite' ? graph.state || 'target' : context.state,
-        status: spec.nodes.length ? 'generated' : 'warning',
-        skipReason: spec.nodes.length ? undefined : 'No graph nodes matched viewpoint',
+        // After buildSpec runs, the spec may still come back with zero
+        // nodes when the entry's requires-rule wasn't strict enough or no
+        // rule was registered for this kind. Treat as skipped (not warning)
+        // so the validator and HTML packet handle it as a gap rather than
+        // a defective generated diagram.
+        status: spec.nodes.length ? 'generated' : 'skipped',
+        skipReason: spec.nodes.length ? undefined : 'no-graph-nodes-matched-viewpoint',
         files,
         confidence: spec.confidence,
         evidenceCount: (spec.evidence || []).length,
@@ -8770,7 +8912,7 @@ function generateForState(entries, graph, outDir, context) {
 // degrades to "no icon for this node" — the SVG renderer falls back to the
 // generic shape placeholder. Honors COBOLT_ARCH_ICON_FETCH={off|bundled-only|
 // local-only} and the --arch-icon-fetch flag.
-function ensureIconCacheSync({ projectRoot, slugs, iconFetch, iconBudget }) {
+function ensureIconCacheSync({ projectRoot, pipeline = 'greenfield', slugs, iconFetch, iconBudget }) {
   if (!Array.isArray(slugs) || slugs.length === 0) return { ok: true, skipped: 'no-slugs' };
   const mode = String(iconFetch || process.env.COBOLT_ARCH_ICON_FETCH || 'auto').toLowerCase();
   if (mode === 'off' || mode === 'bundled-only' || mode === '0' || mode === 'false' || mode === 'disabled') {
@@ -8783,7 +8925,7 @@ function ensureIconCacheSync({ projectRoot, slugs, iconFetch, iconBudget }) {
   const tool = path.join(__dirname, 'cobolt-arch-icon-search.js');
   if (!fs.existsSync(tool)) return { ok: false, error: 'icon-search-tool-missing' };
 
-  const args = ['ensure', '--slugs', slugs.join(','), '--dir', projectRoot, '--json'];
+  const args = ['ensure', '--slugs', slugs.join(','), '--dir', projectRoot, '--pipeline', pipeline, '--json'];
   if (iconBudget != null && Number.isFinite(iconBudget)) {
     args.push('--budget', String(iconBudget));
   }
@@ -8869,7 +9011,7 @@ function generate({
       return { allSlugs: [], categories: {} };
     }
   })();
-  let iconsResolved = iconsLib.resolveGraph(graph, { projectRoot, techStack });
+  let iconsResolved = iconsLib.resolveGraph(graph, { projectRoot, techStack, pipeline });
 
   // Populate the icon cache from allowlisted CDNs (Iconify/simple-icons/
   // devicon — covers AWS Architecture Icons, Azure Icons, Google Cloud Icons,
@@ -8877,11 +9019,11 @@ function generate({
   // Without this, every node renders the generic-shape fallback in svgIcon().
   // Honors --arch-icon-fetch and COBOLT_ARCH_ICON_FETCH (off/bundled-only/local-only).
   const slugsToFetch = collectSlugsToFetch(iconsResolved, techStack);
-  const iconFetchReport = ensureIconCacheSync({ projectRoot, slugs: slugsToFetch, iconFetch, iconBudget });
+  const iconFetchReport = ensureIconCacheSync({ projectRoot, pipeline, slugs: slugsToFetch, iconFetch, iconBudget });
   if (slugsToFetch.length && iconFetchReport.ok && !iconFetchReport.skipped) {
     // Re-resolve so newly cached files are picked up via the cache lookup
     // branch in lib/cobolt-arch-icons.js (returns source: 'cached', localPath).
-    iconsResolved = iconsLib.resolveGraph(graph, { projectRoot, techStack });
+    iconsResolved = iconsLib.resolveGraph(graph, { projectRoot, techStack, pipeline });
   }
 
   const allDiagrams = [];
@@ -8889,7 +9031,7 @@ function generate({
   if (state === 'both' || state === 'composite') {
     for (const sub of ['current', 'target', 'delta']) {
       const subGraph = readJson(path.join(path.dirname(gp), `architecture-graph.${sub}.json`)) || graph;
-      const subIcons = iconsLib.resolveGraph(subGraph, { projectRoot, techStack });
+      const subIcons = iconsLib.resolveGraph(subGraph, { projectRoot, techStack, pipeline });
       const diagrams = generateForState(entries, subGraph, outDir, {
         profile,
         state: sub,

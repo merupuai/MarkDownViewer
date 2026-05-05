@@ -8,7 +8,7 @@ order: 1
 audiences: ["architect", "security", "reviewer"]
 source_sha256: 5668f83bb33a59adbdf2b6b595a306cfdda856b277756cb754d77e3dc8805340
 source_size: 1176
-published_at: 2026-05-04T14:36:58.135Z
+published_at: 2026-05-05T04:08:56.184Z
 published_by: cobolt-publish-docs
 ---
 

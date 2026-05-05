@@ -1,0 +1,718 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-05-05T04:03:12.591Z",
+  "pipeline": "greenfield",
+  "state": "target",
+  "projectRoot": "C:\\Users\\admin\\Desktop\\markdown",
+  "sourceEvidence": [
+    {
+      "path": "_cobolt-output/latest/planning/prd.md",
+      "kind": "markdown",
+      "bytes": 13072,
+      "sha256": "45c711e0209aa4e15ba9e317412dbb5f4a42c13ece328ac7faf81867a2f302a7"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/trd.md",
+      "kind": "markdown",
+      "bytes": 4256,
+      "sha256": "b88213974d2ef3ec926f249439b8793ec48856a853f97fe5aea3ee6c655abc7c"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/architecture.md",
+      "kind": "markdown",
+      "bytes": 2191,
+      "sha256": "2b04cd0a86c763db2a71215b0919274891d4265854b635f231c4428a6b6e546d"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/system-architecture.md",
+      "kind": "markdown",
+      "bytes": 6950,
+      "sha256": "0b3798c94366c27f68f7b4a1a558965aed4d3d4b1b3b7c7785458a36333ede9d"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/data-model-spec.md",
+      "kind": "markdown",
+      "bytes": 5014,
+      "sha256": "6087eedbd5a71610a88a7e34e8d4ff42d2ec7b22bb2c79df93efcf58725b04ab"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/api-contracts.md",
+      "kind": "markdown",
+      "bytes": 5909,
+      "sha256": "586ff4fb1778a06998ff8f7c1f05a07f93030effa108d6e67be41efcccd24314"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/security-requirements.md",
+      "kind": "markdown",
+      "bytes": 4976,
+      "sha256": "bc32f60360926508d82d596d26eb1a5dddcd303881fb3fe1c7405d12aa980c02"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/delivery-plan.md",
+      "kind": "markdown",
+      "bytes": 4789,
+      "sha256": "6b74a9a46613e4e717cc93256d118feba04ca31f085e013a9cca986bcd4f7fd7"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/enriched-requirements.md",
+      "kind": "markdown",
+      "bytes": 2602,
+      "sha256": "7ccf2892dcfe256f9e95535353846584c6000a9763e096f94a28afbaadc6d492"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/feature-service-blueprints.md",
+      "kind": "markdown",
+      "bytes": 2130,
+      "sha256": "86eecec784ff32e8f6b2543dbd6f812051b4cb5c52ab5a9f4af691a0944ebf8f"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/source-document-consolidation.md",
+      "kind": "markdown",
+      "bytes": 10077,
+      "sha256": "8ec70ea950d61c248db999716f3ac4ed655607346b68c23a88b814fe74aeb1f7"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/implicit-requirements.md",
+      "kind": "markdown",
+      "bytes": 7130,
+      "sha256": "21bbccea3d97c363ce62421149fc330f2a7c135800239a4b243f70ae3bbec14d"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/feature-registry.json",
+      "kind": "json",
+      "bytes": 9515,
+      "sha256": "4cf8560a4dec960a585afbc7efb2b47bde884185f986528983638699fba21874"
+    },
+    {
+      "path": "_cobolt-output/latest/planning/rtm.json",
+      "kind": "json",
+      "bytes": 49055,
+      "sha256": "f8a6ffb7d01c23e872af1d55fc266778d2d828800241ace0cb063539c6beaefa"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "capability-orchestration",
+      "type": "capability",
+      "name": "Agent Gateway and Orchestration",
+      "group": "Core Platform",
+      "description": "1 source-backed feature mapped to this capability domain.",
+      "featureRefs": [
+        "FEAT-001"
+      ],
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/feature-registry.json",
+          "summary": "Feature registry capability domain (1 source-backed features)"
+        }
+      ]
+    },
+    {
+      "id": "entity-length-20",
+      "type": "dataEntity",
+      "name": "Length ≤ 20",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-deduplicated-by-path",
+      "type": "dataEntity",
+      "name": "Deduplicated by path",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-sorted-by-recency-most-recent-first",
+      "type": "dataEntity",
+      "name": "Sorted by recency (most recent first)",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-new-entries-unshifted-old-entries-dropped-from-tail",
+      "type": "dataEntity",
+      "name": "New entries unshifted; old entries dropped from tail",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-all-filesystem-paths-in-this-file-must-be-the-os",
+      "type": "dataEntity",
+      "name": "All filesystem paths in this file MUST be the OS",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-adding-format-and-lastedit-is-forward",
+      "type": "dataEntity",
+      "name": "Adding format and lastEdit is forward",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-plain-text-single-line-iso",
+      "type": "dataEntity",
+      "name": "Plain text, single line, ISO",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-presence-of-file-acceptance",
+      "type": "dataEntity",
+      "name": "Presence of file = acceptance",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-absence-first",
+      "type": "dataEntity",
+      "name": "Absence = first",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-file-mode-0644-on-linux-macos-m1-hardening-per-compliance",
+      "type": "dataEntity",
+      "name": "File mode 0644 on Linux/macOS (M1 hardening per § Compliance)",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-file-creation-is-the-atomic-sign-of-acceptance",
+      "type": "dataEntity",
+      "name": "File creation is the ATOMIC sign of acceptance",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-css-pixel-string-e-g-260px",
+      "type": "dataEntity",
+      "name": "CSS pixel string (e.g. \"260px\")",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-clamped-to-180px-560px-on-read",
+      "type": "dataEntity",
+      "name": "Clamped to [180px, 560px] on read",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-plain-text-line",
+      "type": "dataEntity",
+      "name": "Plain text, line",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-examples",
+      "type": "dataEntity",
+      "name": "Examples",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-levels-in-renderer",
+      "type": "dataEntity",
+      "name": "Levels in renderer",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-file-rotates-at-10-mb-mdv",
+      "type": "dataEntity",
+      "name": "File rotates at 10 MB → mdv",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-older-1-is-overwritten-no-2-3",
+      "type": "dataEntity",
+      "name": "Older .1 is overwritten (no .2, .3, ...)",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-in",
+      "type": "dataEntity",
+      "name": "In",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-per",
+      "type": "dataEntity",
+      "name": "Per",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-on-crash",
+      "type": "dataEntity",
+      "name": "On crash",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-centralized-cloud-sync-of-recent-preferences-editor-state",
+      "type": "dataEntity",
+      "name": "Centralized cloud sync of recent / preferences / editor state",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-multi",
+      "type": "dataEntity",
+      "name": "Multi",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-database-relational-or-nosql",
+      "type": "dataEntity",
+      "name": "Database (relational or NoSQL)",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-orm-migration-framework",
+      "type": "dataEntity",
+      "name": "ORM / migration framework",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "entity-feature",
+      "type": "dataEntity",
+      "name": "Feature",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/data-model-spec.md",
+          "summary": "Entity bullet"
+        }
+      ]
+    },
+    {
+      "id": "sec-security-controls-mandatory",
+      "type": "securityControl",
+      "name": "Security Controls (mandatory)",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/security-requirements.md",
+          "summary": "Security heading"
+        }
+      ]
+    },
+    {
+      "id": "sec-sr-02-m1-resolveimage-path-containment",
+      "type": "securityControl",
+      "name": "SR-02 (M1) — resolveImage path containment",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/security-requirements.md",
+          "summary": "Security heading"
+        }
+      ]
+    },
+    {
+      "id": "sec-sr-04-m1-renderer-content-security-policy",
+      "type": "securityControl",
+      "name": "SR-04 (M1) — Renderer Content Security Policy",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/security-requirements.md",
+          "summary": "Security heading"
+        }
+      ]
+    },
+    {
+      "id": "sec-sr-05-m1-image-mime-enforcement",
+      "type": "securityControl",
+      "name": "SR-05 (M1) — Image MIME enforcement",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/security-requirements.md",
+          "summary": "Security heading"
+        }
+      ]
+    },
+    {
+      "id": "sec-sr-07-m2-osv-bun-audit-scan-in-ci",
+      "type": "securityControl",
+      "name": "SR-07 (M2) — OSV / bun audit scan in CI",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/security-requirements.md",
+          "summary": "Security heading"
+        }
+      ]
+    },
+    {
+      "id": "sec-security-controls-advisory-future",
+      "type": "securityControl",
+      "name": "Security Controls (advisory / future)",
+      "state": "target",
+      "confidence": "confirmed",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/security-requirements.md",
+          "summary": "Security heading"
+        }
+      ]
+    },
+    {
+      "id": "tb-external",
+      "type": "trustBoundary",
+      "name": "External / Internet",
+      "state": "target",
+      "confidence": "inferred",
+      "inferredFrom": "Default boundary (no explicit trust-boundary section found)",
+      "evidence": []
+    },
+    {
+      "id": "tb-internal",
+      "type": "trustBoundary",
+      "name": "Internal / Application",
+      "state": "target",
+      "confidence": "inferred",
+      "inferredFrom": "Default boundary (no explicit trust-boundary section found)",
+      "evidence": []
+    },
+    {
+      "id": "env-internal-design-partner",
+      "type": "deploymentEnvironment",
+      "name": "Internal / Design Partner",
+      "state": "target",
+      "confidence": "confirmed",
+      "tags": [
+        "release-env"
+      ],
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/delivery-plan.md",
+          "summary": "Release environment"
+        }
+      ]
+    },
+    {
+      "id": "env-release-candidate",
+      "type": "deploymentEnvironment",
+      "name": "Release Candidate",
+      "state": "target",
+      "confidence": "confirmed",
+      "tags": [
+        "release-env"
+      ],
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/delivery-plan.md",
+          "summary": "Release environment"
+        }
+      ]
+    },
+    {
+      "id": "env-production",
+      "type": "deploymentEnvironment",
+      "name": "Production",
+      "state": "target",
+      "confidence": "confirmed",
+      "tags": [
+        "release-env"
+      ],
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/delivery-plan.md",
+          "summary": "Release environment"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "env-internal-design-partner",
+      "to": "env-release-candidate",
+      "kind": "deploys-to",
+      "confidence": "confirmed",
+      "label": "promotes to",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/delivery-plan.md",
+          "summary": "Release promotion sequence"
+        }
+      ]
+    },
+    {
+      "from": "env-release-candidate",
+      "to": "env-production",
+      "kind": "deploys-to",
+      "confidence": "confirmed",
+      "label": "promotes to",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/delivery-plan.md",
+          "summary": "Release promotion sequence"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp-capabilities",
+      "name": "Capabilities",
+      "kind": "layer",
+      "nodes": [
+        "capability-orchestration"
+      ]
+    },
+    {
+      "id": "grp-data",
+      "name": "Data",
+      "kind": "layer",
+      "nodes": [
+        "entity-length-20",
+        "entity-deduplicated-by-path",
+        "entity-sorted-by-recency-most-recent-first",
+        "entity-new-entries-unshifted-old-entries-dropped-from-tail",
+        "entity-all-filesystem-paths-in-this-file-must-be-the-os",
+        "entity-adding-format-and-lastedit-is-forward",
+        "entity-plain-text-single-line-iso",
+        "entity-presence-of-file-acceptance",
+        "entity-absence-first",
+        "entity-file-mode-0644-on-linux-macos-m1-hardening-per-compliance",
+        "entity-file-creation-is-the-atomic-sign-of-acceptance",
+        "entity-css-pixel-string-e-g-260px",
+        "entity-clamped-to-180px-560px-on-read",
+        "entity-plain-text-line",
+        "entity-examples",
+        "entity-levels-in-renderer",
+        "entity-file-rotates-at-10-mb-mdv",
+        "entity-older-1-is-overwritten-no-2-3",
+        "entity-in",
+        "entity-per",
+        "entity-on-crash",
+        "entity-centralized-cloud-sync-of-recent-preferences-editor-state",
+        "entity-multi",
+        "entity-database-relational-or-nosql",
+        "entity-orm-migration-framework",
+        "entity-feature"
+      ]
+    },
+    {
+      "id": "grp-security",
+      "name": "Security",
+      "kind": "boundary",
+      "nodes": [
+        "sec-security-controls-mandatory",
+        "sec-sr-02-m1-resolveimage-path-containment",
+        "sec-sr-04-m1-renderer-content-security-policy",
+        "sec-sr-05-m1-image-mime-enforcement",
+        "sec-sr-07-m2-osv-bun-audit-scan-in-ci",
+        "sec-security-controls-advisory-future",
+        "tb-external",
+        "tb-internal"
+      ]
+    }
+  ],
+  "risks": [],
+  "assumptions": [
+    "No explicit API endpoints found; API map will show placeholder or skip."
+  ],
+  "gaps": [
+    {
+      "area": "actor",
+      "reason": "No actor nodes extracted from available evidence."
+    },
+    {
+      "area": "component",
+      "reason": "No component nodes extracted from available evidence."
+    },
+    {
+      "area": "api",
+      "reason": "No api nodes extracted from available evidence."
+    },
+    {
+      "area": "integration",
+      "reason": "No integration nodes extracted from available evidence."
+    },
+    {
+      "area": "platformNode",
+      "reason": "No platformNode nodes extracted from available evidence."
+    },
+    {
+      "area": "operationalSignal",
+      "reason": "No operationalSignal nodes extracted from available evidence."
+    }
+  ],
+  "degraded": false,
+  "degradedReason": null,
+  "edgeInference": {
+    "scanned": 23,
+    "durationMs": 10,
+    "addedNodeCount": 0
+  }
+}

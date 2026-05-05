@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  cobolt_published: true
+  canonical: _cobolt-output/latest/brownfield/architecture-diagrams/diagrams/current-OPS-001-observability-and-operations-map.svg
+  pipeline: brownfield
+  topic: 09-diagrams
+  title: Diagrams (SVG)
+  source_sha256: 437a58e0c0d431d9f6db1589c0e691c74720db1d7d54e49cbe3f8f1082b43309
+  source_size: 12793
+  published_at: 2026-05-05T04:08:56.184Z
+  published_by: cobolt-publish-docs
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 1000" width="100%" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif;background:#FFFFFF">
+
+    <defs>
+      <marker id="arrow-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+      </marker>
+      <marker id="arrow-strong" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1E3A8A"/>
+      </marker>
+      <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#94A3B8"/>
+      </marker>
+      <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0F172A" flood-opacity="0.08"/>
+      </filter>
+    </defs>
+<rect x="0" y="0" width="1600" height="1000" fill="#FFFFFF"/>
+<rect x="0" y="0" width="1600" height="88" fill="#1E3A8A" opacity="0.06"/>
+<rect x="0" y="86" width="1600" height="2" fill="#1E3A8A" opacity="0.35"/>
+<text x="40" y="40" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="26" font-weight="700" text-anchor="start" fill="#0F172A" opacity="1">OPS-001 · Observability and Operations Map</text>
+<text x="40" y="64" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="500" text-anchor="start" fill="#475569" opacity="1">Operational Architecture · State: current · Profile: core · Confidence: weak</text>
+<text x="1560" y="40" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="end" fill="#475569" opacity="1">Theme: professional</text>
+<rect x="60" y="130" width="731" height="692" rx="12" ry="12" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.2" opacity="1"/>
+<text x="425.5" y="156" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="800" text-anchor="middle" fill="#1E3A8A" opacity="1">Runtime Components</text>
+<text x="425.5" y="172" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="9" font-weight="700" text-anchor="middle" fill="#475569" opacity="1">1 item</text>
+<rect x="809" y="130" width="731" height="692" rx="12" ry="12" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1.2" opacity="1"/>
+<text x="1174.5" y="156" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="800" text-anchor="middle" fill="#1E3A8A" opacity="1">Signals and Dashboards</text>
+<text x="1174.5" y="172" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="9" font-weight="700" text-anchor="middle" fill="#475569" opacity="1">1 item</text>
+<path d="M818,214 L800,214 L800,214 L782,214" fill="none" stroke="#475569" stroke-width="1.8" marker-end="url(#arrow-default)"/>
+<text x="800" y="208" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="500" text-anchor="middle" fill="#475569" opacity="1">observes</text>
+<rect x="69" y="186" width="713" height="56" rx="8" ry="8" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="1.8" stroke-dasharray="5,4" opacity="1"/>
+<svg x="79" y="202" width="24" height="24" viewBox="0 0 256 289" preserveAspectRatio="xMidYMid meet"><path fill="#539e43" d="M128 288.464c-3.975 0-7.685-1.06-11.13-2.915l-35.247-20.936c-5.3-2.915-2.65-3.975-1.06-4.505c7.155-2.385 8.48-2.915 15.9-7.156c.796-.53 1.856-.265 2.65.265l27.032 16.166c1.06.53 2.385.53 3.18 0l105.74-61.217c1.06-.53 1.59-1.59 1.59-2.915V83.08c0-1.325-.53-2.385-1.59-2.915l-105.74-60.953c-1.06-.53-2.385-.53-3.18 0L20.405 80.166c-1.06.53-1.59 1.855-1.59 2.915v122.17c0 1.06.53 2.385 1.59 2.915l28.887 16.695c15.636 7.95 25.44-1.325 25.44-10.6V93.68c0-1.59 1.326-3.18 3.181-3.18h13.516c1.59 0 3.18 1.325 3.18 3.18v120.58c0 20.936-11.396 33.126-31.272 33.126c-6.095 0-10.865 0-24.38-6.625l-27.827-15.9C4.24 220.885 0 213.465 0 205.515V83.346C0 75.396 4.24 67.976 11.13 64L116.87 2.783c6.625-3.71 15.635-3.71 22.26 0L244.87 64C251.76 67.975 256 75.395 256 83.346v122.17c0 7.95-4.24 15.37-11.13 19.345L139.13 286.08c-3.445 1.59-7.42 2.385-11.13 2.385m32.596-84.009c-46.377 0-55.917-21.2-55.917-39.221c0-1.59 1.325-3.18 3.18-3.18h13.78c1.59 0 2.916 1.06 2.916 2.65c2.12 14.045 8.215 20.936 36.306 20.936c22.261 0 31.802-5.035 31.802-16.96c0-6.891-2.65-11.926-37.367-15.372c-28.886-2.915-46.907-9.275-46.907-32.33c0-21.467 18.02-34.187 48.232-34.187c33.921 0 50.617 11.66 52.737 37.101q0 1.193-.795 2.385c-.53.53-1.325 1.06-2.12 1.06h-13.78c-1.326 0-2.65-1.06-2.916-2.385c-3.18-14.575-11.395-19.345-33.126-19.345c-24.38 0-27.296 8.48-27.296 14.84c0 7.686 3.445 10.07 36.306 14.31c32.597 4.24 47.967 10.336 47.967 33.127c-.265 23.321-19.345 36.571-53.002 36.571"/></svg>
+<text x="113" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="700" text-anchor="start" fill="#0F172A"><tspan x="113" dy="0">Node.js</tspan></text>
+<text x="113" y="235" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="8" font-weight="600" text-anchor="start" fill="#475569" opacity="1">[component]</text>
+<circle cx="770" cy="198" r="4" fill="#D97706" stroke="#FFFFFF" stroke-width="1.2"/>
+<rect x="818" y="186" width="713" height="56" rx="8" ry="8" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="1.8" stroke-dasharray="5,4" opacity="1"/>
+<svg x="828" y="202" width="24" height="24" viewBox="0 0 256 192" preserveAspectRatio="xMidYMid meet"><path fill="#2d4552" d="M84.38 108.352c-9.556 2.712-15.826 7.467-19.956 12.218c3.956-3.461 9.255-6.639 16.402-8.665c7.311-2.072 13.548-2.057 18.702-1.062v-4.03c-4.397-.402-9.437-.082-15.148 1.539M63.987 74.475l-35.49 9.35s.646.914 1.844 2.133l30.092-7.93s-.427 5.495-4.13 10.41c7.005-5.299 7.684-13.963 7.684-13.963m29.709 83.41c-49.946 13.452-76.37-44.43-84.37-74.472c-3.696-13.868-5.31-24.37-5.74-31.148a11.5 11.5 0 0 1 .025-1.84C1.021 50.58-.22 51.927.032 55.82c.43 6.773 2.044 17.275 5.74 31.147c7.997 30.038 34.424 87.92 84.37 74.468c10.871-2.929 19.038-8.263 25.17-15.073c-5.652 5.104-12.724 9.123-21.616 11.523M103.08 39.05v3.555h19.59c-.401-1.259-.806-2.393-1.208-3.555z"/><path fill="#2d4552" d="M127.05 68.325c8.81 2.503 13.47 8.68 15.933 14.146l9.824 2.79s-1.34-19.132-18.645-24.047c-16.189-4.6-26.151 8.995-27.363 10.754c4.71-3.355 11.586-6.102 20.251-3.643m78.197 14.234c-16.204-4.62-26.162 9.003-27.356 10.737c4.713-3.351 11.586-6.099 20.247-3.629c8.797 2.506 13.452 8.676 15.923 14.146l9.837 2.8s-1.361-19.135-18.651-24.054m-9.76 50.443l-81.718-22.845s.885 4.485 4.279 10.293l68.803 19.234c5.664-3.277 8.636-6.682 8.636-6.682m-56.655 49.174C74.127 164.828 81.949 82.386 92.419 43.32c4.311-16.1 8.743-28.066 12.419-36.088c-2.193-.451-4.01.704-5.804 4.354C95.13 19.5 90.14 32.387 85.312 50.427c-10.467 39.066-18.29 121.506 46.412 138.854c30.497 8.17 54.256-4.247 71.966-23.749c-16.81 15.226-38.274 23.763-64.858 16.644"/><path fill="#e2574c" d="M103.081 138.565v-16.637l-46.223 13.108s3.415-19.846 27.522-26.684c7.311-2.072 13.549-2.058 18.701-1.063V39.05h23.145c-2.52-7.787-4.958-13.782-7.006-17.948c-3.387-6.895-6.859-2.324-14.741 4.269c-5.552 4.638-19.583 14.533-40.698 20.222c-21.114 5.694-38.185 4.184-45.307 2.95c-10.097-1.742-15.378-3.96-14.884 3.721c.43 6.774 2.043 17.277 5.74 31.148c7.996 30.039 34.424 87.92 84.37 74.468c13.046-3.515 22.254-10.464 28.637-19.32h-19.256zm-74.588-54.74l35.494-9.35s-1.034 13.654-14.34 17.162c-13.31 3.504-21.154-7.812-21.154-7.812"/><path fill="#2ead33" d="M236.664 39.84c-9.226 1.617-31.361 3.632-58.716-3.7c-27.363-7.328-45.517-20.144-52.71-26.168c-10.197-8.54-14.682-14.476-19.096-5.498c-3.902 7.918-8.893 20.805-13.723 38.846c-10.466 39.066-18.289 121.505 46.413 138.853c64.687 17.333 99.126-57.978 109.593-97.047c4.83-18.037 6.948-31.695 7.53-40.502c.665-9.976-6.187-7.08-19.29-4.784M106.668 72.161s10.196-15.859 27.49-10.943c17.305 4.915 18.645 24.046 18.645 24.046zm42.215 71.163c-30.419-8.91-35.11-33.167-35.11-33.167l81.714 22.846c0-.004-16.494 19.12-46.604 10.32m28.89-49.85s10.183-15.847 27.474-10.918c17.29 4.923 18.651 24.054 18.651 24.054z"/><path fill="#d65348" d="m86.928 126.51l-30.07 8.522s3.266-18.609 25.418-25.983L65.25 45.147l-1.471.447c-21.115 5.694-38.185 4.184-45.307 2.95c-10.097-1.741-15.379-3.96-14.885 3.722c.43 6.774 2.044 17.276 5.74 31.147c7.997 30.039 34.425 87.92 84.37 74.468l1.471-.462zM28.493 83.825l35.494-9.351s-1.034 13.654-14.34 17.162c-13.31 3.504-21.154-7.811-21.154-7.811"/><path fill="#1d8d22" d="m150.255 143.658l-1.376-.335c-30.419-8.91-35.11-33.166-35.11-33.166l42.137 11.778l22.308-85.724l-.27-.07c-27.362-7.329-45.516-20.145-52.71-26.17c-10.196-8.54-14.682-14.475-19.096-5.497c-3.898 7.918-8.889 20.805-13.719 38.846c-10.466 39.066-18.289 121.505 46.413 138.852l1.326.3zM106.668 72.16s10.196-15.859 27.49-10.943c17.305 4.915 18.645 24.046 18.645 24.046z"/><path fill="#c04b41" d="m88.46 126.072l-8.064 2.289c1.906 10.74 5.264 21.047 10.534 30.152c.918-.202 1.828-.376 2.762-.632c2.449-.66 4.72-1.479 6.906-2.371c-5.89-8.74-9.785-18.804-12.137-29.438m-3.148-75.644c-4.144 15.467-7.852 37.73-6.831 60.06c1.826-.793 3.756-1.532 5.9-2.14l1.492-.334c-1.82-23.852 2.114-48.157 6.546-64.694a323 323 0 0 1 3.373-11.704a105 105 0 0 1-5.974 3.547a307 307 0 0 0-4.506 15.265"/></svg>
+<text x="862" y="204" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="700" text-anchor="start" fill="#0F172A"><tspan x="862" dy="0">Playwright</tspan></text>
+<text x="862" y="235" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="8" font-weight="600" text-anchor="start" fill="#475569" opacity="1">[operationalSignal]</text>
+<circle cx="1519" cy="198" r="4" fill="#1E3A8A" stroke="#FFFFFF" stroke-width="1.2"/>
+<rect x="0" y="880" width="1600" height="72" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+<rect x="40" y="894" width="18" height="16" rx="4" ry="4" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" opacity="1"/>
+<text x="66" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Grouped architecture elem…</text>
+<path d="M280 902 L298 902" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow-default)"/>
+<text x="306" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Verified relationship</text>
+<rect x="520" y="894" width="18" height="16" rx="4" ry="4" fill="#FFFFFF" stroke="#475569" stroke-width="2" stroke-dasharray="4,3" opacity="1"/>
+<text x="546" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Support / evidence / infe…</text>
+<rect x="760" y="894" width="18" height="16" rx="8" ry="8" fill="#FEF3C7" stroke="#B45309" stroke-width="2" opacity="1"/>
+<text x="786" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">External dependency</text>
+<ellipse cx="1008" cy="898" rx="8" ry="3" fill="#ECFDF5" stroke="#047857"/><rect x="1000" y="898" width="16" height="12" fill="#ECFDF5" stroke="#047857"/><ellipse cx="1008" cy="910" rx="8" ry="3" fill="#ECFDF5" stroke="#047857"/>
+<text x="1026" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">State or evidence store</text>
+<text x="40" y="986" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">Generated by CoBolt · architecture-diagrams pipeline</text>
+<text x="1560" y="986" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="end" fill="#475569" opacity="1">Observability and Operations Map lanes</text>
+</svg>

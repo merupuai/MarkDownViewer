@@ -131,6 +131,69 @@ function validateEvidenceBacking(graph) {
   return { errs, summary: ok };
 }
 
+// Strict evidence census — every node must have ≥1 evidence ref, regardless
+// of confidence label. This is the gate that closes the schema-permissiveness
+// leak (Architectural Invariant #5: census, not sampling). Required when the
+// graph claims mode='code-scan' (every node must trace back to a real file
+// in the project) and when --gate is passed.
+//
+// Returns errors per node id rather than a summary so the gap report can
+// list each violation.
+function validateEvidenceCensusStrict(graph) {
+  const errs = [];
+  for (const n of graph?.nodes || []) {
+    const hasEvidence = Array.isArray(n.evidence) && n.evidence.length > 0;
+    if (!hasEvidence) {
+      errs.push(`node ${n.id} (${n.type}, confidence=${n.confidence}) lacks any evidence ref`);
+    }
+  }
+  return errs;
+}
+
+// Forbid TO-BE-cohort evidence paths when mode='code-scan'. The AS-IS view
+// must cite the AS-IS cohort (discovery / inventory / scan outputs that
+// describe the actual project) — never the modernization-* plan markdown
+// (`27-modernization-system-architecture.md`, `30-modernization-api-contracts.md`,
+// `39-modernization-delivery-plan.md`) which describes the to-be redesign.
+//
+// Narrow pattern (substring `modernization` in the evidence path) — the AS-IS
+// cohort artifacts (`04-feature-and-module-inventory.md`, `23-master-assessment.md`,
+// etc.) live alongside under `_cobolt-output/latest/brownfield/` and ARE the
+// canonical AS-IS evidence; we MUST NOT forbid them.
+function validateNoSelfReferentialEvidence(graph) {
+  if (graph?.mode !== 'code-scan') return [];
+  const errs = [];
+  const TO_BE_RX = /modernization/i;
+  for (const n of graph?.nodes || []) {
+    for (const ev of n.evidence || []) {
+      if (typeof ev?.path === 'string' && TO_BE_RX.test(ev.path)) {
+        errs.push(
+          `node ${n.id} cites a modernization-cohort artifact as evidence (forbidden in mode=code-scan): ${ev.path}`,
+        );
+      }
+    }
+  }
+  return errs;
+}
+
+// Every emitted (non-skipped, non-failed) diagram should reference graph
+// node ids that actually exist on the graph. Orphans indicate a derivation
+// bug — a renderer pulled a label from somewhere other than the evidence
+// graph.
+function validateDiagramNodeIds(graph, manifest) {
+  const errs = [];
+  const ids = new Set((graph?.nodes || []).map((n) => n.id));
+  for (const d of manifest?.diagrams || []) {
+    if (d.status === 'skipped' || d.status === 'failed') continue;
+    if (!Array.isArray(d.nodeIds)) continue; // shape evolution — older manifests may omit
+    const orphans = d.nodeIds.filter((id) => !ids.has(id));
+    if (orphans.length > 0) {
+      errs.push(`${d.id}: ${orphans.length} node id(s) not present in graph (e.g., ${orphans.slice(0, 3).join(', ')})`);
+    }
+  }
+  return errs;
+}
+
 function check({ projectRoot = process.cwd(), pipeline = 'greenfield', gate = false } = {}) {
   const outDir = archRoot(projectRoot, pipeline);
   const gp = graphPath(projectRoot, pipeline);
@@ -245,6 +308,29 @@ function check({ projectRoot = process.cwd(), pipeline = 'greenfield', gate = fa
   const { errs: evidenceErrs, summary: confidenceSummary } = validateEvidenceBacking(graph);
   for (const e of evidenceErrs) violations.push({ code: 'EVIDENCE_BACKING', message: e, severity: 'warning' });
 
+  // Strict evidence census. Forced when the graph admits mode='code-scan'
+  // (a brownfield AS-IS graph must trace every node to a real file) or when
+  // --gate is on (caller asked for fail-closed validation).
+  const strictEvidence = graph?.mode === 'code-scan' || gate;
+  if (strictEvidence) {
+    for (const e of validateEvidenceCensusStrict(graph)) {
+      violations.push({ code: 'EVIDENCE_CENSUS_STRICT', message: e, severity: 'error' });
+    }
+  }
+
+  // Self-referential evidence (mode=code-scan only): forbid CoBolt output
+  // paths in evidence[].path. The graph must cite the actual project, not
+  // its own modernization plan.
+  for (const e of validateNoSelfReferentialEvidence(graph)) {
+    violations.push({ code: 'EVIDENCE_SELF_REF', message: e, severity: 'error' });
+  }
+
+  // Orphan check: every non-skipped diagram should reference real graph
+  // node ids. Older manifests omit nodeIds; the check is a no-op there.
+  for (const e of validateDiagramNodeIds(graph, manifest)) {
+    violations.push({ code: 'DIAGRAM_NODE_ORPHAN', message: e, severity: 'error' });
+  }
+
   // Degraded-graph signal: produced by the graph builder when fewer than 5
   // non-default nodes exist after every fallback. Diagrams will be near-empty
   // and stakeholder-unfit. Tier 2 — promotes to a hard fail under --gate.
@@ -271,7 +357,13 @@ function check({ projectRoot = process.cwd(), pipeline = 'greenfield', gate = fa
       v.code === 'SVG_MISSING' ||
       v.code === 'PNG_MISSING',
   );
-  const evidencePass = !violations.some((v) => v.code === 'EVIDENCE_BACKING');
+  const evidencePass = !violations.some(
+    (v) =>
+      v.code === 'EVIDENCE_BACKING' ||
+      v.code === 'EVIDENCE_CENSUS_STRICT' ||
+      v.code === 'EVIDENCE_SELF_REF' ||
+      v.code === 'DIAGRAM_NODE_ORPHAN',
+  );
 
   // Persist gap report
   const gapReport = {
@@ -380,4 +472,7 @@ module.exports = {
   validatePlantUmlSyntax,
   validateSvgSyntax,
   validateEvidenceBacking,
+  validateEvidenceCensusStrict,
+  validateNoSelfReferentialEvidence,
+  validateDiagramNodeIds,
 };

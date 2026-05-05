@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  cobolt_published: true
+  canonical: _cobolt-output/latest/brownfield/architecture-diagrams/diagrams/current-SEC-002-identity-and-access-flow.svg
+  pipeline: brownfield
+  topic: 09-diagrams
+  title: Diagrams (SVG)
+  source_sha256: 80fb78bfebe7c664b15b0ecef6043d862650a1d29a40a69498db368c98e07f30
+  source_size: 4617
+  published_at: 2026-05-05T04:08:56.184Z
+  published_by: cobolt-publish-docs
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 1000" width="100%" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif;background:#FFFFFF">
+
+    <defs>
+      <marker id="arrow-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+      </marker>
+      <marker id="arrow-strong" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1E3A8A"/>
+      </marker>
+      <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#94A3B8"/>
+      </marker>
+      <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0F172A" flood-opacity="0.08"/>
+      </filter>
+    </defs>
+<rect x="0" y="0" width="1600" height="1000" fill="#FFFFFF"/>
+<rect x="0" y="0" width="1600" height="88" fill="#1E3A8A" opacity="0.06"/>
+<rect x="0" y="86" width="1600" height="2" fill="#1E3A8A" opacity="0.35"/>
+<text x="40" y="40" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="26" font-weight="700" text-anchor="start" fill="#0F172A" opacity="1">SEC-002 · Identity and Access Flow</text>
+<text x="40" y="64" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="500" text-anchor="start" fill="#475569" opacity="1">Security Architecture · State: current · Profile: core · Confidence: unknown</text>
+<text x="1560" y="40" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="end" fill="#475569" opacity="1">Theme: professional</text>
+<rect x="500" y="425" width="600" height="140" rx="12" ry="12" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="2" stroke-dasharray="6,4" opacity="1"/>
+<text x="800" y="499" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="500" text-anchor="middle" fill="#475569" opacity="1">No graph nodes matched this viewpoint.</text>
+<rect x="0" y="880" width="1600" height="72" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+<rect x="40" y="894" width="18" height="16" rx="4" ry="4" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" opacity="1"/>
+<text x="66" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Application / Component</text>
+<ellipse cx="288" cy="898" rx="8" ry="3" fill="#ECFDF5" stroke="#047857"/><rect x="280" y="898" width="16" height="12" fill="#ECFDF5" stroke="#047857"/><ellipse cx="288" cy="910" rx="8" ry="3" fill="#ECFDF5" stroke="#047857"/>
+<text x="306" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Data store</text>
+<rect x="520" y="894" width="18" height="16" rx="8" ry="8" fill="#FEF3C7" stroke="#B45309" stroke-width="2" opacity="1"/>
+<text x="546" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">External / Integration</text>
+<rect x="760" y="894" width="18" height="16" rx="4" ry="4" fill="#FFFFFF" stroke="#475569" stroke-width="2" stroke-dasharray="4,3" opacity="1"/>
+<text x="786" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Inferred confidence</text>
+<path d="M1000 902 L1018 902" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow-default)"/>
+<text x="1026" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Depends on / calls</text>
+<text x="40" y="986" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">Generated by CoBolt · architecture-diagrams pipeline</text>
+</svg>

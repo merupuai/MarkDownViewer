@@ -2410,17 +2410,46 @@ function generateCheckpointsAndGapReports(context, actions) {
     crossMilestoneBlockedTasks: sha256File(blockedTasksPath),
   };
 
+  // PHASE-DEPENDENCY CONTRACT: Phase 5 ("Build Authorization") REQUIRES
+  // Phase 4.5 ("Plan-Fix Convergence + Arch Refresh") to have closed first.
+  // See cobolt-plan/SKILL.md:2796-2802 + 2975. brownfield-sync runs BEFORE
+  // the brownfield arch sidecar (SKILL.md L729 vs L954), so Phase 4.5 is
+  // not yet complete at this point. Forging the phase5 + planningComplete
+  // markers from here was the v0.65 silent-skip that made Phase 4.5
+  // unreachable from the brownfield → /cobolt-plan --auto resume path
+  // (cobolt-plan/SKILL.md:371-372 short-circuits to build on
+  // planningComplete:true). Detect whether Phase 4.5 has actually closed
+  // — only then is it honest to claim Phase 5.
+  const phase45CheckpointPath = path.join(checkpointsDir, 'phase4-5-fix-and-arch.json');
+  const phase45Closed = fs.existsSync(phase45CheckpointPath);
+
   const checkpoints = {
-    'planning-progress.json': {
-      currentPhase: 5,
-      lastCompletedSkill: 'cobolt-brownfield',
-      nextSkill: 'cobolt-validate-prd',
-      completedSkills: ['cobolt-brownfield'],
-      updatedAt: ts,
-      planningComplete: true,
-      requiresVerification: true,
-      source: 'brownfield-sync',
-    },
+    'planning-progress.json': phase45Closed
+      ? {
+          currentPhase: 5,
+          lastCompletedSkill: 'cobolt-brownfield',
+          nextSkill: 'cobolt-validate-prd',
+          completedSkills: ['cobolt-brownfield'],
+          updatedAt: ts,
+          planningComplete: true,
+          requiresVerification: true,
+          source: 'brownfield-sync',
+        }
+      : {
+          currentPhase: 4,
+          lastCompletedSkill: 'cobolt-brownfield',
+          // Phase 4.5 (cobolt-plan-fix + arch refresh) has not run yet.
+          // The brownfield SKILL.md arch sidecar will close 4.5 after this
+          // sync, OR /cobolt-plan --auto will resume into Phase 4.5 via
+          // this nextSkill pointer (primary resume path).
+          nextSkill: 'cobolt-plan-fix',
+          completedSkills: ['cobolt-brownfield'],
+          updatedAt: ts,
+          planningComplete: false,
+          requiresVerification: true,
+          pendingPhase: '4.5',
+          source: 'brownfield-sync',
+        },
     'phase1-product-intent.json': {
       phase: 1,
       name: 'Product Intent',
@@ -2454,16 +2483,24 @@ function generateCheckpointsAndGapReports(context, actions) {
       artifactHashes: phase4ArtifactHashes,
       source: 'brownfield-sync',
     },
-    'phase5-build-authorization.json': {
-      phase: 5,
-      name: 'Build Authorization',
-      completedAt: ts,
-      nextPhase: null,
-      nextSkill: 'cobolt-validate-prd',
-      planningComplete: true,
-      requiresVerification: true,
-      source: 'brownfield-sync',
-    },
+    // phase5-build-authorization.json is written ONLY when Phase 4.5 has
+    // closed. Otherwise the brownfield SKILL.md arch sidecar (which runs
+    // after this sync) writes both phase4-5-fix-and-arch.json and
+    // phase5-build-authorization.json once arch artifacts exist on disk.
+    ...(phase45Closed
+      ? {
+          'phase5-build-authorization.json': {
+            phase: 5,
+            name: 'Build Authorization',
+            completedAt: ts,
+            nextPhase: null,
+            nextSkill: 'cobolt-validate-prd',
+            planningComplete: true,
+            requiresVerification: true,
+            source: 'brownfield-sync',
+          },
+        }
+      : {}),
   };
 
   for (const [file, content] of Object.entries(checkpoints)) {

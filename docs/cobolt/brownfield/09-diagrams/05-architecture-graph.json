@@ -1,0 +1,346 @@
+{
+  "version": "1.0.0",
+  "generatedAt": "2026-05-05T04:04:27.651Z",
+  "pipeline": "brownfield",
+  "state": "current",
+  "projectRoot": "C:\\Users\\admin\\Desktop\\markdown",
+  "sourceEvidence": [
+    {
+      "path": "_cobolt-output/latest/brownfield/00-source-file-manifest.json",
+      "kind": "json",
+      "bytes": 1559,
+      "sha256": "fb5779761bdc4a3744b0c76dbda8b617f78302043d3696cd5e03f7ffb5050aa9"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/04-feature-and-module-inventory.md",
+      "kind": "markdown",
+      "bytes": 10690,
+      "sha256": "b4052874563daa7c8efcfc0ad1a4c856eb10c487a55991430184e24a49381cfd"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/05-database-and-data-store-report.md",
+      "kind": "markdown",
+      "bytes": 4306,
+      "sha256": "686b43207003c9d4d55bbe9fcb8d8b5fffde38ed10f9d34847c5c0f6a0216547"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/06-integration-map.md",
+      "kind": "markdown",
+      "bytes": 4632,
+      "sha256": "8a53ceaaeb9811122d2aabd564b36b3f5f808012d9e1b81e1afdb627b4bf3059"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/12-security-and-quality-assessment.md",
+      "kind": "markdown",
+      "bytes": 15824,
+      "sha256": "18be8043e041e470c984ab4cfd8d8baaec02df1115e3bdc911069ec8c8f9e071"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/16-issues-registry.json",
+      "kind": "json",
+      "bytes": 20820,
+      "sha256": "3b3becc241e47b9aa530d2a73e6511dbf65ca4ed8eb9cf9bb59cb347805b6d8a"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/19-evidence-index.json",
+      "kind": "json",
+      "bytes": 4323,
+      "sha256": "89512fd8b08e20ad6cfc282cb520952b493f04fd1ae094d83cdfd6df831e3bed"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/23-master-assessment.md",
+      "kind": "markdown",
+      "bytes": 6461,
+      "sha256": "865d1b31c127b0c860e9dfd9b86b29a3d0573fedd0cf8a97da3e1015fb911db1"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/27-modernization-system-architecture.md",
+      "kind": "markdown",
+      "bytes": 6333,
+      "sha256": "1bae3e409ca7f5909e645d6fadc6d67ecc1b7dae4e191e59fa1f3d6353efd8e6"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/30-modernization-api-contracts.md",
+      "kind": "markdown",
+      "bytes": 5292,
+      "sha256": "731a52f1cfe66e59915ac1812336e88e2f5da1e2edff7849662eb689d92d41c6"
+    },
+    {
+      "path": "_cobolt-output/latest/brownfield/39-modernization-delivery-plan.md",
+      "kind": "markdown",
+      "bytes": 4172,
+      "sha256": "8e3b3b2bf7d716ca554e3cb224f0b6b32ea5876cef40c9a67b8bbb4ea1fb34a2"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "tb-external",
+      "type": "trustBoundary",
+      "name": "External / Internet",
+      "state": "current",
+      "confidence": "inferred",
+      "inferredFrom": "Default boundary placeholder; markdown-viewer is a desktop Electrobun/Bun app with no network ingress, so 'External / Internet' has limited applicability beyond user file system and rendered iframe sandbox.",
+      "evidence": []
+    },
+    {
+      "id": "tb-internal",
+      "type": "trustBoundary",
+      "name": "Internal / Application",
+      "state": "current",
+      "confidence": "inferred",
+      "inferredFrom": "Default boundary placeholder; for a desktop viewer the meaningful boundary is renderer-process (DOMPurify-sanitised) vs main-process, not generic application/internal.",
+      "evidence": []
+    },
+    {
+      "id": "component-node",
+      "type": "component",
+      "name": "Node.js",
+      "state": "current",
+      "confidence": "weak",
+      "inferredFrom": "package.json declares engines.bun >=1.3.0 and scripts use 'bun run' / 'bun test'; runtime is Bun, not Node.js. No 'node' engine declared. Playwright CLI may invoke Node internally but Node is not the project runtime. Suggest replacing with component-bun and component-electrobun.",
+      "evidence": [
+        {
+          "path": "package.json",
+          "summary": "Dependency declared as \"node\""
+        }
+      ]
+    },
+    {
+      "id": "ops-playwright",
+      "type": "operationalSignal",
+      "name": "Playwright",
+      "state": "current",
+      "confidence": "inferred",
+      "inferredFrom": "Confirmed via package.json devDependency '@playwright/test' ^1.48.0 and script 'test:e2e' using e2e/playwright.config.ts. Role is e2e test harness, not runtime observability — type 'operationalSignal' is loose; consider 'component' (test tooling) instead.",
+      "evidence": [
+        {
+          "path": "package.json:@playwright/test",
+          "summary": "Detected \"playwright\" via package.json:@playwright/test"
+        }
+      ]
+    },
+    {
+      "id": "entity-postgres",
+      "type": "dataStore",
+      "name": "PostgreSQL",
+      "state": "current",
+      "confidence": "unknown",
+      "inferredFrom": "Sole evidence is _cobolt-docker/docker-compose.yml service image 'postgres:16-alpine'. package.json has no pg/postgres/prisma/drizzle/knex client. Project is a desktop markdown viewer with no persistence backend. Almost certainly CoBolt scaffolding seeded via _cobolt-docker/, not a real dependency. Recommend removing from current-state graph or demoting to scaffolding-only.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "summary": "Service image matched \"postgres\""
+        }
+      ]
+    },
+    {
+      "id": "entity-redis",
+      "type": "dataStore",
+      "name": "Redis",
+      "state": "current",
+      "confidence": "unknown",
+      "inferredFrom": "Sole evidence is _cobolt-docker/docker-compose.yml service image 'redis:7-alpine'. No redis/ioredis/bullmq client in package.json. Desktop viewer has no caching/queue need. CoBolt scaffolding artifact, not real runtime dependency. Recommend removal or scaffolding-only flag.",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "summary": "Service image matched \"redis\""
+        }
+      ]
+    },
+    {
+      "id": "plat-docker",
+      "type": "platformNode",
+      "name": "Docker",
+      "state": "current",
+      "confidence": "weak",
+      "inferredFrom": "Evidence is _cobolt-docker/docker-compose.yml plus a trd.md mention. Docker is part of CoBolt's local dev scaffolding, not a deployment target for an Electrobun-built desktop binary. Distribution is via 'electrobun build --release' producing native macOS bundles (per package.json description: 'Native macOS markdown viewer').",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "summary": "Service image matched \"docker\""
+        },
+        {
+          "path": "_cobolt-output/latest/planning/trd.md",
+          "summary": "External service \"docker\""
+        }
+      ]
+    },
+    {
+      "id": "plat-render",
+      "type": "platformNode",
+      "name": "Render",
+      "state": "current",
+      "confidence": "unknown",
+      "inferredFrom": "Render.com mentioned only in CoBolt-templated trd.md/prd.md. No render.yaml, no web service, no HTTP server in package.json. A native macOS desktop app cannot deploy to Render. Almost certainly a CoBolt planning template artifact. Recommend removal.",
+      "evidence": [
+        {
+          "path": "_cobolt-output/latest/planning/trd.md",
+          "summary": "External service \"render\""
+        },
+        {
+          "path": "_cobolt-output/latest/planning/prd.md",
+          "summary": "Mentioned \"render\""
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "ops-playwright",
+      "to": "component-node",
+      "kind": "observes",
+      "confidence": "inferred",
+      "label": "observes",
+      "evidence": [
+        {
+          "summary": "fallback architecture-layer synthesis: operational signal observes matching runtime/artifact surface"
+        }
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "grp-security",
+      "name": "Security",
+      "kind": "boundary",
+      "nodes": [
+        "tb-external",
+        "tb-internal"
+      ]
+    },
+    {
+      "id": "grp-application",
+      "name": "Application",
+      "kind": "layer",
+      "nodes": [
+        "component-node"
+      ]
+    },
+    {
+      "id": "grp-operations",
+      "name": "Operations",
+      "kind": "layer",
+      "nodes": [
+        "ops-playwright"
+      ]
+    },
+    {
+      "id": "grp-data",
+      "name": "Data",
+      "kind": "layer",
+      "nodes": [
+        "entity-postgres",
+        "entity-redis"
+      ]
+    },
+    {
+      "id": "grp-platform",
+      "name": "Platform",
+      "kind": "platform",
+      "nodes": [
+        "plat-docker",
+        "plat-render"
+      ]
+    }
+  ],
+  "risks": [],
+  "assumptions": [
+    "No source-level call/data edges were detected; relationship edges were synthesized from durable architecture layers and marked inferred. Add planning artifacts or source-level dependency evidence for confirmed edges.",
+    "Documentation artifacts were thin; APIs / services / entities were synthesized from the project source tree (api/, services/, schemas/, models/). Run the full brownfield pipeline for confirmed nodes.",
+    "Planning artifacts were absent; nodes were synthesized from the project tech stack (package.json / docker-compose / infra-manifest / language manifests). Run `cobolt plan project .` for evidence-backed diagrams.",
+    "No explicit API endpoints found; API map will show placeholder or skip.",
+    "No data entities extracted; ERD / data-flow diagrams will show placeholder or skip."
+  ],
+  "gaps": [
+    {
+      "area": "actor",
+      "reason": "No actor nodes extracted from available evidence."
+    },
+    {
+      "area": "capability",
+      "reason": "No capability nodes extracted from available evidence."
+    },
+    {
+      "area": "dataEntity",
+      "reason": "No dataEntity nodes extracted from available evidence."
+    },
+    {
+      "area": "api",
+      "reason": "No api nodes extracted from available evidence."
+    },
+    {
+      "area": "integration",
+      "reason": "No integration nodes extracted from available evidence."
+    },
+    {
+      "area": "securityControl",
+      "reason": "No securityControl nodes extracted from available evidence."
+    },
+    {
+      "area": "actor",
+      "reason": "Add actor 'End User (macOS local)' — primary and only human actor for a desktop viewer.",
+      "source": "curator"
+    },
+    {
+      "area": "capability",
+      "reason": "Add capabilities: render-markdown, render-mermaid-diagrams, render-katex-math, syntax-highlight, sanitize-html, parse-frontmatter, pan-zoom-svg, file-open.",
+      "source": "curator"
+    },
+    {
+      "area": "component",
+      "reason": "Add component-electrobun (runtime shell), component-bun (JS runtime, replacing inferred component-node), component-markdown-it (+ 6 plugins), component-mermaid, component-katex, component-highlight-js, component-dompurify, component-gray-matter, component-svg-pan-zoom — all evidenced in package.json dependencies.",
+      "source": "curator"
+    },
+    {
+      "area": "dataEntity",
+      "reason": "Add dataEntity 'MarkdownDocument' (file path + parsed AST + frontmatter) and 'DesignTokens' (referenced via scripts/design-token-check.ts). No relational entities apply.",
+      "source": "curator"
+    },
+    {
+      "area": "integration",
+      "reason": "No external integrations exist; mark N/A explicitly. Remove inferred Postgres/Redis/Render which are scaffolding phantoms.",
+      "source": "curator"
+    },
+    {
+      "area": "securityControl",
+      "reason": "Add securityControl-dompurify (HTML sanitisation), securityControl-katex-trust-false, securityControl-mermaid-security-level, securityControl-electrobun-renderer-sandbox, securityControl-bun-audit (CI gate via 'bun audit --audit-level=high').",
+      "source": "curator"
+    },
+    {
+      "area": "operationalSignal",
+      "reason": "Reclassify ops-playwright as test-tooling component, not operational signal. Add real ops signals only if found (none currently in package.json).",
+      "source": "curator"
+    },
+    {
+      "area": "platformNode",
+      "reason": "Replace plat-docker/plat-render with plat-macos (target platform, evidenced by 'Native macOS markdown viewer' in package.json description and gen-icons output) and plat-bun-runtime.",
+      "source": "curator"
+    },
+    {
+      "area": "scaffolding-cleanup",
+      "reason": "Remove or quarantine entity-postgres, entity-redis, plat-docker, plat-render — all four are CoBolt _cobolt-docker / planning-template phantoms with zero evidence in actual project source (package.json, scripts/, e2e/).",
+      "source": "curator"
+    }
+  ],
+  "degraded": false,
+  "degradedReason": null,
+  "edgeInference": {
+    "scanned": 23,
+    "durationMs": 10,
+    "addedNodeCount": 0,
+    "fallback": "architectureLayer",
+    "emptyInference": true
+  },
+  "curatorRun": {
+    "at": "2026-05-05T04:07:54.233Z",
+    "annotationsApplied": 8,
+    "orphanedEdges": 0,
+    "missingViewpoints": 9,
+    "suggestedGaps": 9,
+    "evidenceConfidence": {
+      "overall": "low",
+      "rationale": "8/8 nodes are 'inferred' and 4/8 (Postgres, Redis, Docker, Render) are scaffolding phantoms unsupported by package.json or project source. The single confirmable runtime component (Bun + Electrobun) is misidentified as Node.js. Real architecture surface — markdown-it pipeline, sanitisation, mermaid/katex rendering, macOS desktop packaging — is entirely absent from the graph. Coverage of canonical entity types: actor 0, capability 0, component 1 (wrong), dataEntity 0, api 0, integration 0, securityControl 0, trustBoundary 2 (defaults), platformNode 2 (wrong), operationalSignal 1 (misclassified)."
+    },
+    "notes": "Graph is dominated by CoBolt scaffolding noise (_cobolt-docker compose + planning-template trd/prd mentions); recommend a brownfield re-scan scoped to package.json + src/ + scripts/ + e2e/ to capture the real Electrobun/Bun + markdown-it + mermaid/katex desktop architecture before any diagram is rendered."
+  }
+}

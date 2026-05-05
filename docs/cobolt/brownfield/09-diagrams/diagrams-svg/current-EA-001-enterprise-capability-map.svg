@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  cobolt_published: true
+  canonical: _cobolt-output/latest/brownfield/architecture-diagrams/diagrams/current-EA-001-enterprise-capability-map.svg
+  pipeline: brownfield
+  topic: 09-diagrams
+  title: Diagrams (SVG)
+  source_sha256: c08c79324e15d7c74b9002b7377e68a3b9c575b83e1278cf66b1cfb61bb877a3
+  source_size: 11038
+  published_at: 2026-05-05T04:08:56.184Z
+  published_by: cobolt-publish-docs
+-->
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1600 1000" width="100%" style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif;background:#FFFFFF">
+
+    <defs>
+      <marker id="arrow-default" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+      </marker>
+      <marker id="arrow-strong" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1E3A8A"/>
+      </marker>
+      <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#94A3B8"/>
+      </marker>
+      <filter id="card-shadow" x="-10%" y="-10%" width="120%" height="120%">
+        <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#0F172A" flood-opacity="0.08"/>
+      </filter>
+    </defs>
+<rect x="0" y="0" width="1600" height="1000" fill="#FFFFFF"/>
+<rect x="0" y="0" width="1600" height="88" fill="#1E3A8A" opacity="0.06"/>
+<rect x="0" y="86" width="1600" height="2" fill="#1E3A8A" opacity="0.35"/>
+<text x="40" y="40" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="26" font-weight="700" text-anchor="start" fill="#0F172A" opacity="1">EA-001 · Enterprise Capability Map</text>
+<text x="40" y="64" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="500" text-anchor="start" fill="#475569" opacity="1">Enterprise Architecture · State: current · Profile: core · Confidence: unknown</text>
+<text x="1560" y="40" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="end" fill="#475569" opacity="1">Theme: professional</text>
+<text x="130" y="154" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="700" text-anchor="start" fill="#1E3A8A" opacity="1">Demand and Experience</text>
+<path d="M130 166 L430 166" fill="none" stroke="#E2E8F0" stroke-width="1.2"/>
+<text x="570" y="154" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="700" text-anchor="start" fill="#1E3A8A" opacity="1">Core Platform Capabilities</text>
+<path d="M570 166 L870 166" fill="none" stroke="#E2E8F0" stroke-width="1.2"/>
+<text x="1010" y="154" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="14" font-weight="700" text-anchor="start" fill="#1E3A8A" opacity="1">Enterprise Enablement</text>
+<path d="M1010 166 L1310 166" fill="none" stroke="#E2E8F0" stroke-width="1.2"/>
+<path d="M1160,530 L1160,502 L1380,502 L1380,194 L720,194 L720,190" fill="none" stroke="#1E3A8A" stroke-width="2.4" marker-end="url(#arrow-strong)"/>
+<rect x="1317" y="348" width="127" height="19" rx="9" ry="9" fill="#FFFFFF" stroke="#E2E8F0" stroke-width="0.8" opacity="0.96"/>
+<text x="1380" y="362" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="600" text-anchor="middle" fill="#475569" opacity="1">promotes controls</text>
+<path d="M870,229 L898,229 L898,569 L870,569" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrow-muted)"/>
+<text x="898" y="393" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="500" text-anchor="middle" fill="#475569" opacity="1">architecture dependen…</text>
+<path d="M870,229 L940,229 L940,229 L1010,229" fill="none" stroke="#94A3B8" stroke-width="1.8" stroke-dasharray="6,4" marker-end="url(#arrow-muted)"/>
+<text x="940" y="223" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="500" text-anchor="middle" fill="#475569" opacity="1">architecture dependen…</text>
+<rect x="570" y="190" width="300" height="78" rx="10" ry="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" stroke-dasharray="5,4" opacity="1"/>
+<g class="fallback-icon fallback-icon-securitycontrol"><circle cx="600" cy="229" r="18" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/><path d="M600,219.64 L609.36,226.64 V229.72 C609.36,236.36 600,243.36 600,243.36 C600,243.36 590.64,236.36 590.64,229.72 V226.64 Z" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="630" y="215" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="start" fill="#0F172A"><tspan x="630" dy="0">Policy and Security Governance</tspan></text>
+<text x="630" y="234" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">[capability]</text>
+<circle cx="856" cy="204" r="5" fill="#1E3A8A" stroke="#FFFFFF" stroke-width="1.5"/>
+<rect x="570" y="530" width="300" height="78" rx="10" ry="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" opacity="1"/>
+<g class="fallback-icon fallback-icon-datastore"><circle cx="600" cy="569" r="18" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/><ellipse cx="600" cy="562.64" rx="7.92" ry="3.6" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M592.08,562.64 V574.36 C592.08,583.36 607.92,583.36 607.92,574.36 V562.64" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M592.08,574.36 C592.08,583.36 607.92,583.36 607.92,574.36" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="630" y="555" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="start" fill="#0F172A"><tspan x="630" dy="0">State and Evidence Data</tspan></text>
+<text x="630" y="574" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">[capability]</text>
+<circle cx="856" cy="544" r="5" fill="#DC2626" stroke="#FFFFFF" stroke-width="1.5"/>
+<rect x="1010" y="190" width="300" height="78" rx="10" ry="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" stroke-dasharray="5,4" opacity="1"/>
+<g class="fallback-icon fallback-icon-operationalsignal"><circle cx="1040" cy="229" r="18" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/><path d="M1030.64,238.36 H1049.36" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1032.64,235.36 L1037.12,234.72 L1041.8,240.72 L1047.36,223.64" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1070" y="215" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="start" fill="#0F172A"><tspan x="1070" dy="0">Operations and Observability</tspan></text>
+<text x="1070" y="234" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">[capability]</text>
+<circle cx="1296" cy="204" r="5" fill="#1E3A8A" stroke="#FFFFFF" stroke-width="1.5"/>
+<rect x="1010" y="530" width="300" height="78" rx="10" ry="10" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" opacity="1"/>
+<g class="fallback-icon fallback-icon-deployment"><circle cx="1040" cy="569" r="18" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2"/><path d="M1032.64,565.64 H1047.36 V574.36 H1032.64 Z" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1032.64,572.64 H1047.36" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1040,570.36 V577.64" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M1040,577.64 L1034,584.64 M1040,577.64 L1046,584.64" fill="none" stroke="#1E3A8A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+<text x="1070" y="555" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="start" fill="#0F172A"><tspan x="1070" dy="0">Deployment and Release Management</tspan></text>
+<text x="1070" y="574" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">[capability]</text>
+<circle cx="1296" cy="544" r="5" fill="#DC2626" stroke="#FFFFFF" stroke-width="1.5"/>
+<text x="60" y="850" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="12" font-weight="500" text-anchor="start" fill="#475569" opacity="1">No explicit capability nodes were present; capability domains were derived from source-backed architecture evidence.</text>
+<rect x="0" y="880" width="1600" height="72" fill="#F8FAFC" stroke="#E2E8F0" stroke-width="1"/>
+<rect x="40" y="894" width="18" height="16" rx="4" ry="4" fill="#EFF6FF" stroke="#1E3A8A" stroke-width="2" opacity="1"/>
+<text x="66" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Capability domain</text>
+<path d="M280 902 L298 902" fill="none" stroke="#475569" stroke-width="2" marker-end="url(#arrow-default)"/>
+<text x="306" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Capability dependency</text>
+<rect x="520" y="894" width="18" height="16" rx="4" ry="4" fill="#FFFFFF" stroke="#475569" stroke-width="2" stroke-dasharray="4,3" opacity="1"/>
+<text x="546" y="908" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="11" font-weight="500" text-anchor="start" fill="#0F172A" opacity="1">Inferred confidence</text>
+<text x="40" y="986" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="start" fill="#475569" opacity="1">Generated by CoBolt · architecture-diagrams pipeline</text>
+<text x="1560" y="986" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Inter,sans-serif" font-size="10" font-weight="400" text-anchor="end" fill="#475569" opacity="1">Enterprise capability map · domain layout</text>
+</svg>

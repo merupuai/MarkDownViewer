@@ -8,7 +8,7 @@ order: 3
 audiences: ["architect", "build-agent"]
 source_sha256: 158c0ea56abfd69261949557928d8558dc1c75e2411ee4cd21c57eb187d3fa9a
 source_size: 1739
-published_at: 2026-05-04T14:36:58.135Z
+published_at: 2026-05-05T04:08:56.184Z
 published_by: cobolt-publish-docs
 ---
 

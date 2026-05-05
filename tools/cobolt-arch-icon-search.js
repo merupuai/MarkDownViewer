@@ -47,11 +47,13 @@ function parseArgs(argv) {
 
 async function cmdResolve(opts) {
   const projectRoot = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const pipeline = opts.pipeline || detectArchitecturePipeline(projectRoot);
   const techStack = stack.detect(projectRoot);
   const resolved = icons.resolve({
     nodeName: opts.name,
     techStack,
     projectRoot,
+    pipeline,
   });
   if (!resolved) {
     const report = {
@@ -70,6 +72,7 @@ async function cmdResolve(opts) {
 
 async function cmdEnsure(opts) {
   const projectRoot = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const pipeline = opts.pipeline || detectArchitecturePipeline(projectRoot);
   const slugs = opts.slugs.length ? opts.slugs : suggestSlugsFromStack(projectRoot);
   if (!slugs.length) {
     process.stdout.write(`${JSON.stringify({ ok: true, slugs: [], note: 'no slugs to resolve' }, null, 2)}\n`);
@@ -90,10 +93,11 @@ async function cmdEnsure(opts) {
   }
 
   const budget = typeof opts.budget === 'number' && Number.isFinite(opts.budget) ? opts.budget : fetcher.DEFAULT_BUDGET;
-  const { results, budgetRemaining } = await fetcher.ensureIconsForSlugs(projectRoot, slugs, { budget });
+  const { results, budgetRemaining } = await fetcher.ensureIconsForSlugs(projectRoot, slugs, { budget, pipeline });
   const resolvedCount = Object.values(results).filter((r) => r.ok).length;
   const summary = {
     ok: resolvedCount > 0 || slugs.length === 0,
+    pipeline,
     total: slugs.length,
     resolved: resolvedCount,
     budgetRemaining,
@@ -131,7 +135,8 @@ function cmdListRegistry() {
 
 function cmdManifest(opts) {
   const projectRoot = opts.dir ? path.resolve(opts.dir) : process.cwd();
-  const manifest = fetcher.loadManifest(projectRoot);
+  const pipeline = opts.pipeline || detectArchitecturePipeline(projectRoot);
+  const manifest = fetcher.loadManifest(projectRoot, { pipeline });
   process.stdout.write(`${JSON.stringify(manifest, null, 2)}\n`);
   process.exit(0);
 }
@@ -165,7 +170,7 @@ function cmdUnresolved(opts) {
     process.stdout.write(`${JSON.stringify({ ok: true, unresolved: [], note: 'no graph found' }, null, 2)}\n`);
     process.exit(0);
   }
-  const manifest = fetcher.loadManifest(projectRoot);
+  const manifest = fetcher.loadManifest(projectRoot, { pipeline: preferred });
   const cachedSlugs = new Set(Object.keys(manifest.icons || {}));
   const unresolved = [];
   const seen = new Set();
@@ -197,6 +202,7 @@ function cmdUnresolved(opts) {
 // Input format (stdin, JSON): { slug, candidate: { url, source, iconId?, license?, confidence? } }
 async function cmdAcceptResolver(opts) {
   const projectRoot = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const pipeline = opts.pipeline || detectArchitecturePipeline(projectRoot);
   let stdinRaw = '';
   process.stdin.setEncoding('utf8');
   for await (const chunk of process.stdin) stdinRaw += chunk;
@@ -224,7 +230,7 @@ async function cmdAcceptResolver(opts) {
   } catch {
     /* best-effort */
   }
-  const result = await fetcher.fetchAndCacheFromCandidate(projectRoot, slug, candidate);
+  const result = await fetcher.fetchAndCacheFromCandidate(projectRoot, slug, candidate, { pipeline });
   try {
     fs.unlinkSync(path.join(markerDir, '.arch-icon-fetch-active'));
   } catch {
@@ -241,6 +247,7 @@ async function cmdAcceptResolver(opts) {
         slug,
         url: candidate.url,
         source: candidate.source || 'resolver',
+        pipeline,
         result: result.ok ? 'ok' : 'fail',
         reason: result.reason || null,
       })}\n`,
@@ -272,12 +279,12 @@ async function main(argv) {
     default:
       process.stderr.write(
         'usage: cobolt-arch-icon-search <resolve|ensure|list-registry|manifest|unresolved|accept-resolver> [options]\n' +
-          '  resolve         --name "<service>" [--dir <path>]\n' +
-          '  ensure          --slugs a,b,c [--budget 20] [--dir <path>]\n' +
+          '  resolve         --name "<service>" [--dir <path>] [--pipeline greenfield|brownfield]\n' +
+          '  ensure          --slugs a,b,c [--budget 20] [--dir <path>] [--pipeline greenfield|brownfield]\n' +
           '  list-registry\n' +
-          '  manifest        [--dir <path>]\n' +
+          '  manifest        [--dir <path>] [--pipeline greenfield|brownfield]\n' +
           '  unresolved      [--dir <path>] [--pipeline greenfield|brownfield]\n' +
-          '  accept-resolver [--dir <path>]   # reads {slug, candidate:{url,...}} JSON on stdin\n',
+          '  accept-resolver [--dir <path>] [--pipeline greenfield|brownfield]   # reads {slug, candidate:{url,...}} JSON on stdin\n',
       );
       process.exit(2);
   }
