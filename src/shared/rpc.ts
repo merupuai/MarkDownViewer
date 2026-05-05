@@ -1,7 +1,10 @@
 import type { RPCSchema } from "electrobun/bun";
 
-// L1/L2 (Path B delta): encoding awareness for read + write
-export type Encoding = "utf-8" | "utf-16le" | "utf-16be" | "latin-1";
+// L1/L2 (Path B delta): encoding awareness for read + write.
+// "windows-1252" is the auto-detect fallback for non-UTF-8 8-bit text — see
+// the rationale block in src/bun/text-io.ts. "latin-1" stays selectable for
+// users who explicitly want pure ISO-8859-1 (no C1 typography slot).
+export type Encoding = "utf-8" | "utf-16le" | "utf-16be" | "latin-1" | "windows-1252";
 export type EOL = "lf" | "crlf";
 
 // L3 (Path B delta): lossy-encoding diagnostic (e.g. saving emoji as Latin-1)

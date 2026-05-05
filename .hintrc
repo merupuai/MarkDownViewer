@@ -3,6 +3,7 @@
   "hints": {
     "compat-api/css": ["default", {
       "ignore": ["-webkit-app-region"]
-    }]
+    }],
+    "no-inline-styles": "off"
   }
 }

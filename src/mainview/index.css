@@ -977,6 +977,7 @@ body[data-mode="edit"] #content        { grid-area: preview; min-width: 0; overf
 	border: none;
 	border-right: 1px solid var(--border-soft);
 	cursor: pointer;
+	-webkit-user-select: none;
 	user-select: none;
 	font-family: var(--font-sans);
 	max-width: 220px;

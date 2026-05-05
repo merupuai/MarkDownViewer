@@ -37,12 +37,35 @@ describe("readText — encoding & EOL detection", () => {
 		expect(r.content).toBe("hi\n");
 	});
 
-	test("Latin-1, CRLF", async () => {
+	test("non-UTF-8 8-bit text auto-detects as windows-1252 (was latin-1)", async () => {
+		// Fixture is bytes `68 E9 6C 6C 6F 0D 0A`. 0xE9 alone is invalid UTF-8,
+		// so the strict-UTF-8 path falls back to the 8-bit branch. The fallback
+		// label flipped from "latin-1" to "windows-1252" because every Windows
+		// authoring tool emits CP1252 for "ANSI" text — see the rationale block
+		// in src/bun/text-io.ts. 0xE9 maps to é (U+00E9) in both encodings,
+		// so the user-visible content is unchanged.
 		const r = await readText("tests/unit/text-io.fixtures/latin1-crlf.txt");
-		expect(r.encoding).toBe("latin-1");
+		expect(r.encoding).toBe("windows-1252");
 		expect(r.bom).toBe(false);
 		expect(r.eol).toBe("crlf");
 		expect(r.content).toBe("héllo\r\n");
+	});
+
+	// Regression for the en-dash/em-dash mojibake: a Notepad-saved markdown
+	// file with §1–§12 + §5b — used to come back with U+0096 / U+0097 (C1
+	// control codepoints with no glyph) under the old latin-1 fallback. Pin
+	// that those bytes now decode to U+2013 / U+2014 (the real en/em-dash).
+	test("CP1252 typography (0x96/0x97) decodes to en-dash/em-dash, not C1 controls", async () => {
+		const r = await readText("tests/unit/text-io.fixtures/cp1252-typography-crlf.txt");
+		expect(r.encoding).toBe("windows-1252");
+		expect(r.eol).toBe("crlf");
+		expect(r.content).toBe("§1–§12 + §5b —\r\n");
+		// Belt-and-braces: the actual codepoints, not just the visible string.
+		const codepoints = [...r.content].map((c) => c.charCodeAt(0));
+		expect(codepoints).toContain(0x2013); // EN DASH
+		expect(codepoints).toContain(0x2014); // EM DASH
+		expect(codepoints).not.toContain(0x0096); // C1 control we used to emit
+		expect(codepoints).not.toContain(0x0097);
 	});
 
 	test("binary file is flagged", async () => {
@@ -118,6 +141,38 @@ describe("writeText — round-trip preservation", () => {
 		expect(r.ok).toBe(true);
 		const text = readFileSync(p, "utf8");
 		expect(text).toBe("a\r\nb\r\n");
+		unlinkSync(p);
+	});
+
+	test("Windows-1252 round-trip preserves typography characters", async () => {
+		const p = join(tmpDir, "cp1252-rt.txt");
+		const original = "§1–§12 + §5b —\r\n";
+		const w = await writeText(p, original, { encoding: "windows-1252", eol: "crlf", bom: false });
+		expect(w.ok).toBe(true);
+		const buf = readFileSync(p);
+		// 0x96 (en-dash) and 0x97 (em-dash) must be in the on-disk bytes, not
+		// 0x3F (?) — that would mean we silently truncated.
+		expect(buf.includes(0x96)).toBe(true);
+		expect(buf.includes(0x97)).toBe(true);
+		const r = await readText(p);
+		expect(r.encoding).toBe("windows-1252");
+		expect(r.content).toBe(original);
+		unlinkSync(p);
+	});
+
+	test("Windows-1252 lossy refusal: emoji is unrepresentable, allowLossy bypass works", async () => {
+		const p = join(tmpDir, "cp1252-lossy.txt");
+		// Pizza (U+1F355) is not in CP1252.
+		const refused = await writeText(p, "lunch: 🍕", { encoding: "windows-1252", eol: "lf", bom: false });
+		expect(refused.ok).toBe(false);
+		if (refused.ok === false) {
+			expect(refused.lossy.encoding).toBe("windows-1252");
+			expect(refused.lossy.lossyCharCount).toBeGreaterThan(0);
+		}
+		expect(() => readFileSync(p)).toThrow();
+
+		const allowed = await writeText(p, "lunch: 🍕", { encoding: "windows-1252", eol: "lf", bom: false }, { allowLossy: true });
+		expect(allowed.ok).toBe(true);
 		unlinkSync(p);
 	});
 
